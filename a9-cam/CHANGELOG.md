@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.3
+
+- Fix: the add-on image now really contains the current `main` code. Docker had cached the
+  `git clone` layer, so version bumps rebuilt an old binary without the link/UI fixes.
+
 ## 3.2.2
 
 - Fix: „Back to cameras“ on the Wi-Fi setup page no longer returns 404 (`GET /index.html`).

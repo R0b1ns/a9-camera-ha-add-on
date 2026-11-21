@@ -26,15 +26,18 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 ## Aktueller Stand
 
 - Repo: `https://github.com/R0b1ns/a9-camera-ha-add-on`
-- `main`: Version 3.2.2 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes und lokalem
+- `main`: Version 3.2.3 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes und lokalem
   Go-Build via `a9-cam/Dockerfile` (HA liest den Default-Branch `main`;
-  vorher zog es das dbuezas-v3.1.7-Image). `fork/main`: 3.2.2, gepusht.
+  vorher zog es das dbuezas-v3.1.7-Image). `fork/main`: 3.2.3, gepusht.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
-- `a9-cam/Dockerfile` klont beim Build `main` (`A9CAM_REF=main`): Code-Änderungen
-  wirken in HA erst nach einem Add-on-Update/Rebuild. Die Versionsanzeige 3.2.1
-  kommt aus `config.yaml` und beweist nicht, dass das Image den neuen Code enthält.
+- `a9-cam/Dockerfile` klont beim Build `main` (`A9CAM_REF=main`). **Falle:** Docker
+  cachete diese Layer, sodass ein Versionsupdate den alten Code neu verpackte.
+  Seit 3.2.3 geht `BUILD_VERSION` in den `git clone`-Schritt ein und bricht den
+  Cache – ohne das bleiben 404 und fehlende Badges trotz „Update“ sichtbar.
+  Die Versionsanzeige kommt aus `config.yaml` und beweist für sich allein nicht,
+  dass das Image den neuen Code enthält.
 - Go ist hier nicht installiert → `go test` lokal nicht möglich.
 
 ## Add-on-UI: Status-Badges & DNS-Alert (Code behoben, Image-Prüfung offen)
