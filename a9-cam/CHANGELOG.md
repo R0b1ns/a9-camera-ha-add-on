@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.9
+
+- Change: removed the redundant note about the camera AP having no password from the setup page.
+- Fix: emphasized words inside the steps (e.g. "5 seconds") no longer break onto their own line.
+
 ## 3.2.8
 
 - Fix: "Back to cameras" no longer returns 404. In-page URLs were resolved against the page file
