@@ -2,8 +2,10 @@ name: A9 Camera
 version: 3.2.0
 slug: a9-cam
 description: Local server for A9 / V720 mini cameras, no cloud
-url: https://github.com/dbuezas/a9-camera-ha-add-on
-image: ghcr.io/dbuezas/{arch}-a9-cam
+url: https://github.com/R0b1ns/a9-camera-ha-add-on
+# Development fork: build locally from a9-cam/Dockerfile instead of pulling
+# dbuezas' prebuilt image. Remove this comment block and add the image line
+# again before sending the PR upstream.
 arch:
   - aarch64
   - amd64
