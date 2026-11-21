@@ -69,6 +69,15 @@
 
   <script>
     const host = location.hostname;
+    // Ingress can be mounted with or without a trailing slash. Build in-page
+    // URLs from a base that always ends in "/" so they stay in the add-on path.
+    const baseURL = new URL(location.href);
+    baseURL.search = "";
+    baseURL.hash = "";
+    if (!baseURL.pathname.endsWith("/")) baseURL.pathname += "/";
+    const rel = path => new URL(path, baseURL).href;
+    // Direct links deliberately use port 8557: the first open asks for the HA login.
+    const direct = path => `http://${host}:8557/${path}`;
     const cmds = [
       ["IR on", "code=202&IrLed=1"], ["IR off", "code=202&IrLed=0"],
       ["Flip", "code=216&mirrorFlip=4"], ["No flip", "code=216&mirrorFlip=0"],
@@ -85,19 +94,26 @@
         <div class="body">
           <div class="title"><b></b><span class="muted state"></span></div>
           <div class="row"><div class="label">RTSP (MJPEG + audio)</div><code class="rtsp"></code></div>
-          <div class="row"><div class="label">MJPEG</div><code class="mjpeg"></code></div>
-          <div class="row"><div class="label">Snapshot</div><code class="snap"></code></div>
+          <div class="row"><div class="label">MJPEG (direct link, HA login)</div><code class="mjpeg"></code>
+            <div class="buttons"><a class="btn" target="_blank" rel="noopener" data-direct="mjpeg">Open MJPEG</a></div></div>
+          <div class="row"><div class="label">Snapshot (direct link, HA login)</div><code class="snap"></code>
+            <div class="buttons"><a class="btn" target="_blank" rel="noopener" data-direct="snap">Open snapshot</a></div></div>
           <div class="row buttons">
             <button class="live">Live</button>
-            <a class="btn" target="_blank" href="dev/${cam.uid}/snapshot">Snapshot</a>
+            <a class="btn" target="_blank" data-rel="snapshot">Snapshot (Ingress)</a>
             ${cmds.map(([name, q]) => `<button data-q="${q}">${name}</button>`).join("")}
           </div>
         </div>`;
       el.querySelector("b").textContent = cam.uid;
       el.querySelector(".rtsp").textContent = `rtsp://${host}:8556/${cam.uid}`;
-      // Direct links keep working; authMiddleware sends unknown browsers to the HA login page
-      el.querySelector(".mjpeg").textContent = `http://${host}:8557/dev/${cam.uid}/live`;
-      el.querySelector(".snap").textContent = `http://${host}:8557/dev/${cam.uid}/snapshot`;
+      // Direct links keep working; authMiddleware sends unknown browsers to the HA login page.
+      const mjpegURL = direct(`dev/${cam.uid}/live`);
+      const snapURL = direct(`dev/${cam.uid}/snapshot`);
+      el.querySelector(".mjpeg").textContent = mjpegURL;
+      el.querySelector(".snap").textContent = snapURL;
+      el.querySelector('[data-direct="mjpeg"]').href = mjpegURL;
+      el.querySelector('[data-direct="snap"]').href = snapURL;
+      el.querySelector('[data-rel="snapshot"]').href = rel(`dev/${cam.uid}/snapshot`);
       const img = el.querySelector("img");
       const live = el.querySelector(".live");
       let stop = null;
@@ -106,13 +122,13 @@
         stop = play(img, cam.uid, () => {
           stop = null;
           live.textContent = "Live";
-          img.src = `dev/${cam.uid}/snapshot?t=${Date.now()}`;
+          img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
         });
         live.textContent = "Stop";
       };
       el.querySelectorAll("button[data-q]").forEach(b =>
-        b.onclick = () => fetch(`dev/${cam.uid}/cmd?${b.dataset.q}`));
-      img.src = `dev/${cam.uid}/snapshot?t=${Date.now()}`;
+        b.onclick = () => fetch(rel(`dev/${cam.uid}/cmd?${b.dataset.q}`)));
+      img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
       return el;
     }
 
@@ -124,7 +140,7 @@
       const dec = new TextDecoder();
       let url = null;
       (async () => {
-        const res = await fetch(`dev/${uid}/live?raw`, { signal: ctrl.signal });
+        const res = await fetch(rel(`dev/${uid}/live?raw`), { signal: ctrl.signal });
         if (!res.ok) throw new Error(res.status);
         const reader = res.body.getReader();
         let buf = new Uint8Array(0);
@@ -167,26 +183,30 @@
       let list, st;
       try {
         [list, st] = await Promise.all([
-          fetch("dev/list").then(r => r.json()),
-          fetch("api/status").then(r => r.json()).catch(() => null),
+          fetch(rel("dev/list")).then(r => {
+            if (!r.ok) throw new Error(r.status);
+            return r.json();
+          }),
+          fetch(rel("api/status")).then(r => r.json()).catch(() => null),
         ]);
       } catch (e) {
         document.getElementById("status").textContent = "Server unreachable";
         return;
       }
       badge("badge-cams", `Cameras: ${list.length}`, list.length ? "ok" : "warn");
-      if (st) {
-        badge("badge-dns", st.dns_ok ? "Cloud DNS: OK" : "Cloud DNS: WRONG", st.dns_ok ? "ok" : "bad");
-        badge("badge-wifi", st.wifi_available ? `HA WLAN: ${st.wifi_iface}` : "HA WLAN: none",
-          st.wifi_available ? "ok" : "warn");
-        const alert = document.getElementById("alert");
-        alert.innerHTML = st.dns_ok ? "" :
-          `<div class="alert"><b>DNS redirect missing.</b> <code>${st.dns_name}</code> resolves to ` +
-          `<code>${st.dns_ip || "nothing"}</code>, but this host is ` +
-          `<code>${(st.local_ips || []).join(", ") || "unknown"}</code>. ` +
-          `Set the DNS rewrites for <code>*.naxclow.com</code> and <code>*.naxclow.com.cn</code> ` +
-          `in your router/AdGuard, then restart the cameras.</div>`;
-      }
+      badge("badge-dns", st
+        ? (st.dns_ok ? "Cloud DNS: OK" : "Cloud DNS: WRONG")
+        : "Cloud DNS: unavailable", st ? (st.dns_ok ? "ok" : "bad") : "warn");
+      badge("badge-wifi", st
+        ? (st.wifi_available ? `HA WLAN: ${st.wifi_iface}` : "HA WLAN: none")
+        : "HA WLAN: unavailable", st && st.wifi_available ? "ok" : "warn");
+      const alert = document.getElementById("alert");
+      alert.innerHTML = st && !st.dns_ok ?
+        `<div class="alert"><b>DNS redirect missing.</b> <code>${st.dns_name}</code> resolves to ` +
+        `<code>${st.dns_ip || "nothing"}</code>, but this host is ` +
+        `<code>${(st.local_ips || []).join(", ") || "unknown"}</code>. ` +
+        `Set the DNS rewrites for <code>*.naxclow.com</code> and <code>*.naxclow.com.cn</code> ` +
+        `in your router/AdGuard, then restart the cameras.</div>` : "";
       document.getElementById("status").textContent = list.length
         ? `${list.length} camera(s) connected`
         : "No camera connected. Cameras retry every few minutes after a restart.";
