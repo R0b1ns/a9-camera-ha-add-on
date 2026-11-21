@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.5
+
+- Change: the add-on image build now uses BuildKit cache mounts for Go modules and compiled
+  packages. Updates reuse the cache instead of recompiling all of go2rtc every time.
+
 ## 3.2.4
 
 - Fix: Go compile error in the Wi-Fi AP endpoint (`undefined: err`) broke the 3.2.3 image build.

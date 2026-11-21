@@ -26,9 +26,9 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 ## Aktueller Stand
 
 - Repo: `https://github.com/R0b1ns/a9-camera-ha-add-on`
-- `main`: Version 3.2.4 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes und lokalem
+- `main`: Version 3.2.5 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes und lokalem
   Go-Build via `a9-cam/Dockerfile` (HA liest den Default-Branch `main`;
-  vorher zog es das dbuezas-v3.1.7-Image). `fork/main`: 3.2.4, gepusht.
+  vorher zog es das dbuezas-v3.1.7-Image). `fork/main`: 3.2.5, gepusht.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -36,6 +36,10 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   cachete diese Layer, sodass ein Versionsupdate den alten Code neu verpackte.
   Seit 3.2.3 geht `BUILD_VERSION` in den `git clone`-Schritt ein und bricht den
   Cache – ohne das bleiben 404 und fehlende Badges trotz „Update“ sichtbar.
+  Seit 3.2.5 nutzt der Build zusätzlich BuildKit-Cache-Mounts
+  (`/root/.cache/go-build`, `/go/pkg/mod`), damit nicht jedes Update alle
+  Go-Pakete neu kompiliert. HA baut aber weiter lokal – der endgültige Weg wäre
+  ein GHCR-Prebuilt-Image (`image:` in `config.yaml`), wie es der Upstream macht.
   Die Versionsanzeige kommt aus `config.yaml` und beweist für sich allein nicht,
   dass das Image den neuen Code enthält.
 - Go ist hier nicht installiert → `go test` lokal nicht möglich. 3.2.3 scheiterte
