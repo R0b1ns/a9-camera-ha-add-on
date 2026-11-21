@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -413,26 +414,71 @@ func TestHTTPWiFiValidation(t *testing.T) {
 	}
 }
 
-func TestUIGuard(t *testing.T) {
+func TestAuthMiddleware(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
-	guard := uiAccessGuard(next, defaultUIAllow)
-	for _, tc := range []struct {
-		remote string
-		status int
-	}{
-		{"127.0.0.1:1234", http.StatusNoContent},
-		{"[::1]:1234", http.StatusNoContent},
-		{"172.30.32.2:1234", http.StatusNoContent},
-		{"192.168.1.50:1234", http.StatusForbidden},
-	} {
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	guard := authMiddleware(next, secret, true)
+	call := func(remote string, cookie *http.Cookie) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("GET", "/dev/list", nil)
-		req.RemoteAddr = tc.remote
+		req.RemoteAddr = remote
+		if cookie != nil {
+			req.AddCookie(cookie)
+		}
 		rec := httptest.NewRecorder()
 		guard.ServeHTTP(rec, req)
-		require.Equal(t, tc.status, rec.Code, tc.remote)
+		return rec
 	}
+	for _, remote := range []string{"127.0.0.1:1234", "[::1]:1234", "172.30.32.2:1234"} {
+		require.Equal(t, http.StatusNoContent, call(remote, nil).Code, remote)
+	}
+	rec := call("192.168.1.50:1234", nil)
+	require.Equal(t, http.StatusFound, rec.Code)
+	require.Contains(t, rec.Header().Get("Location"), "/login?next=")
+
+	cookie := &http.Cookie{Name: sessionCookie, Value: sessionValue(secret, "jane", time.Now().Add(time.Hour).Unix())}
+	require.Equal(t, http.StatusNoContent, call("192.168.1.50:1234", cookie).Code)
+	cookie.Value = sessionValue(secret, "jane", time.Now().Add(-time.Hour).Unix())
+	require.Equal(t, http.StatusFound, call("192.168.1.50:1234", cookie).Code)
+
+	// Without a Supervisor token (standalone) direct access stays open.
+	openRec := httptest.NewRecorder()
+	authMiddleware(next, secret, false).ServeHTTP(openRec, httptest.NewRequest("GET", "/", nil))
+	require.Equal(t, http.StatusNoContent, openRec.Code)
+}
+
+func TestLoginPage(t *testing.T) {
+	req := httptest.NewRequest("GET", "/login?next=%2Fdev%2Fuid%2Fsnapshot", nil)
+	rec := httptest.NewRecorder()
+	loginGET(rec, req)
+	require.Equal(t, 200, rec.Code)
+	require.Contains(t, rec.Body.String(), "Home Assistant user")
+	require.Contains(t, rec.Body.String(), `value="/dev/uid/snapshot"`)
+}
+
+func TestVerifyHACredentials(t *testing.T) {
+	auth := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "test-token", r.Header.Get("X-Supervisor-Token"))
+		var body map[string]string
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		if body["username"] == "jane" && body["password"] == "secret" {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusUnauthorized)
+		}
+	}))
+	defer auth.Close()
+	oldURL, oldToken := supervisorAuthURL, os.Getenv("SUPERVISOR_TOKEN")
+	supervisorAuthURL = auth.URL
+	require.NoError(t, os.Setenv("SUPERVISOR_TOKEN", "test-token"))
+	defer func() {
+		supervisorAuthURL = oldURL
+		_ = os.Setenv("SUPERVISOR_TOKEN", oldToken)
+	}()
+
+	require.True(t, verifyHACredentials("jane", "secret"))
+	require.False(t, verifyHACredentials("jane", "wrong"))
 }
 
 func TestCameraPortDoesNotServeUI(t *testing.T) {

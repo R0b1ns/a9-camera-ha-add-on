@@ -14,22 +14,27 @@ The cameras connect to it instead of China, and it serves their video and audio 
 4. Restart the cameras, or wait. After a server restart a camera can take up to about 10 minutes to
    come back.
 5. Open the add-on web UI from the add-on panel in Home Assistant (Ingress). Each connected camera
-   shows up with its ID and URLs. The UI and the camera streams are **only** available while logged
-   in to Home Assistant; there is no open port for them by default.
+   shows up with its ID and URLs. You can also open the URLs directly on port 8557 after a one-time
+   Home Assistant login (see **Access control**).
 6. Optional but recommended: install the **A9 Camera** integration from HACS (same repository) and
    restart Home Assistant. It finds this add-on by itself and adds each camera as a device with a live
    camera, switches and sensors.
 
 ## Access control
 
-The web UI, snapshots, MJPEG streams and the command API are served on the ingress port only. The add-on
-accepts requests from the Supervisor (`172.30.32.2`) and from localhost (the Home Assistant integration).
-Direct requests from other addresses get `403 Forbidden`. Port 80 serves only the cameras' cloud API,
-so old links like `http://HA_IP/dev/.../snapshot` no longer expose video to the whole network.
+Direct links such as `http://HA_IP:8557/dev/CAMERA_ID/snapshot` still work, but now ask for a
+**Home Assistant user name and password** on first use. The add-on checks them against the Supervisor's
+auth API (`auth_api: true`) and then sets an HttpOnly session cookie valid for seven days. The password
+is never stored in the add-on. Requests coming through Home Assistant Ingress (the Supervisor at
+`172.30.32.2`) and the local integration (`127.0.0.1`) are already authenticated by Home Assistant and
+skip the login form.
+
+Port 80 serves only the cameras' cloud API, so old links without a port (for example
+`http://HA_IP/dev/.../snapshot`) no longer expose video to the whole network. Always use port 8557.
 
 If your setup sends ingress traffic from a different address (for example a reverse proxy), add that
-network to the `ui_allowed_cidrs` option, e.g. `192.168.1.0/24`. Denied requests are logged with their
-source address. The option extends the built-in allows; it never removes them.
+network to the `ui_allowed_cidrs` option, e.g. `192.168.1.0/24`. Those addresses are treated as already
+authenticated. The option extends the built-in allows; it never removes them.
 
 ## Streams
 
@@ -43,7 +48,7 @@ Replace `CAMERA_ID` with the ID shown in the web UI (for example `0800c0035826`)
 | Camera list (JSON) | `http://HA_IP:8557/dev/list` |
 
 The camera only sends video while someone watches. All viewers of one camera share one stream.
-These URLs require a Home Assistant session when they are opened through Ingress. RTSP is a separate
+These URLs ask for a Home Assistant login on first use (see **Access control**). RTSP is a separate
 protocol without a login, so its port is off by default; enable it in the add-on's **Network** section
 only if you trust the network and need it (e.g. for go2rtc).
 

@@ -34,9 +34,9 @@ var (
 	streams *hub.Hub
 )
 
-// The web UI and its API must not be reachable from the LAN without a Home
-// Assistant login. Ingress requests come from the Supervisor, the integration
-// talks to us from localhost. Everything else gets a 403.
+// Ingress requests come from the Supervisor, the integration talks to us from
+// localhost. Both are already authenticated by Home Assistant. Direct requests
+// to port 8557 get a login page (see auth.go).
 var defaultUIAllow = []netip.Prefix{
 	netip.MustParsePrefix("127.0.0.0/8"),
 	netip.MustParsePrefix("::1/128"),
@@ -79,7 +79,6 @@ func main() {
 	log = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:05.000"}).
 		Level(lvl).With().Timestamp().Logger()
 
-	uiAllow := append([]netip.Prefix(nil), defaultUIAllow...)
 	for _, list := range []string{*uiAllowExtra, opts.UIAllowedCIDRs} {
 		for _, cidr := range strings.Split(list, ",") {
 			cidr = strings.TrimSpace(cidr)
@@ -90,9 +89,15 @@ func main() {
 			if err != nil {
 				log.Fatal().Err(err).Str("cidr", cidr).Msg("[main] ui_allowed_cidrs")
 			}
-			uiAllow = append(uiAllow, prefix)
+			defaultUIAllow = append(defaultUIAllow, prefix)
 		}
 	}
+
+	secretPath := ""
+	if isAddon {
+		secretPath = "/data/a9cam-session.key"
+	}
+	sessionSecret = loadSessionSecret(secretPath)
 
 	server = a9.NewServer()
 	server.Log = log
@@ -140,7 +145,7 @@ func main() {
 		go func() { log.Fatal().Err(http.Serve(ln, camMux)).Msg("[main] camera http") }()
 	}
 
-	uiMux := uiAccessGuard(routes(), uiAllow)
+	uiMux := authMiddleware(routes(), sessionSecret, os.Getenv("SUPERVISOR_TOKEN") != "")
 	ln, err := net.Listen("tcp", *uiAddr)
 	if err != nil {
 		log.Fatal().Err(err).Msg("[main] ui")
@@ -157,33 +162,6 @@ func cameraRoutes() *http.ServeMux {
 	return mux
 }
 
-// uiAccessGuard accepts only the Supervisor's ingress proxy and local processes.
-func uiAccessGuard(next http.Handler, allow []netip.Prefix) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		host, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil {
-			host = r.RemoteAddr
-		}
-		ip, err := netip.ParseAddr(strings.Trim(host, "[]"))
-		if err != nil || !ipInPrefixes(ip, allow) {
-			log.Warn().Str("remote", r.RemoteAddr).Str("path", r.URL.Path).
-				Msg("[http] denied (use the Home Assistant add-on panel)")
-			http.Error(w, "forbidden: open this page from the Home Assistant add-on panel", http.StatusForbidden)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-func ipInPrefixes(ip netip.Addr, prefixes []netip.Prefix) bool {
-	for _, p := range prefixes {
-		if p.Contains(ip) {
-			return true
-		}
-	}
-	return false
-}
-
 func routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /dev/list", apiList)
@@ -196,6 +174,8 @@ func routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/devices/{uid}/refresh", apiRefresh)
 	mux.HandleFunc("POST /api/devices/{uid}/settings", apiSettings)
 	mux.HandleFunc("POST /api/devices/{uid}/wifi", apiWiFi)
+	mux.HandleFunc("GET /login", loginGET)
+	mux.HandleFunc("POST /login", loginPOST)
 	mux.HandleFunc("GET /setup.html", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, web, "web/setup.html")
 	})

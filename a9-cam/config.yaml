@@ -14,6 +14,9 @@ startup: application
 host_network: true
 ingress: true
 ingress_port: 8557
+# Direct links on port 8557 ask for a Home Assistant user and password and
+# check them against the Supervisor's auth API.
+auth_api: true
 panel_icon: mdi:cctv
 discovery:
   - a9_cam
@@ -21,16 +24,16 @@ ports:
   80/tcp: 80
   6123/tcp: 6123
   6123/udp: 6123
-  # Off by default: open the UI through Home Assistant's add-on panel (ingress).
-  # Set a host port here only if the camera streams are also needed outside HA.
+  # RTSP has no login, so it stays off unless the user enables it.
   8556/tcp:
-  8557/tcp:
+  # Direct links work after a Home Assistant login; ingress also works.
+  8557/tcp: 8557
 ports_description:
   80/tcp: Cloud API for the cameras (they always call port 80)
   6123/tcp: Camera control channel
   6123/udp: Camera video and audio
   8556/tcp: RTSP (MJPEG video + PCMA audio), off by default
-  8557/tcp: Web UI, MJPEG, snapshots and the integration API, off by default
+  8557/tcp: Web UI, MJPEG, snapshots and the integration API (HA login required)
 options:
   log_level: info
   camera_http_port: 80

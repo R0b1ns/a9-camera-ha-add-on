@@ -77,9 +77,9 @@
         </div>`;
       el.querySelector("b").textContent = cam.uid;
       el.querySelector(".rtsp").textContent = `rtsp://${host}:8556/${cam.uid}`;
-      // Relative paths work behind Home Assistant Ingress; port 8557 is off by default
-      el.querySelector(".mjpeg").textContent = `dev/${cam.uid}/live`;
-      el.querySelector(".snap").textContent = `dev/${cam.uid}/snapshot`;
+      // Direct links keep working; authMiddleware sends unknown browsers to the HA login page
+      el.querySelector(".mjpeg").textContent = `http://${host}:8557/dev/${cam.uid}/live`;
+      el.querySelector(".snap").textContent = `http://${host}:8557/dev/${cam.uid}/snapshot`;
       const img = el.querySelector("img");
       const live = el.querySelector(".live");
       let stop = null;
