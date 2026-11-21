@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.2.4
+
+- Fix: Go compile error in the Wi-Fi AP endpoint (`undefined: err`) broke the 3.2.3 image build.
+
 ## 3.2.3
 
 - Fix: the add-on image now really contains the current `main` code. Docker had cached the

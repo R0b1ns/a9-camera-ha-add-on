@@ -151,7 +151,7 @@ func apiWiFiAP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "camera AP did not assign an address", http.StatusGatewayTimeout)
 		return
 	}
-	err = apSetWiFiFunc(req.SSID, req.Password)
+	err := apSetWiFiFunc(req.SSID, req.Password)
 	// Always disconnect from the isolated camera AP, even on failure.
 	if disconnectErr := disconnectWiFi(req.Iface); disconnectErr != nil {
 		log.Error().Err(disconnectErr).Msg("[api] wifi ap: cannot disconnect Wi-Fi")

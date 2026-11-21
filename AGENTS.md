@@ -26,9 +26,9 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 ## Aktueller Stand
 
 - Repo: `https://github.com/R0b1ns/a9-camera-ha-add-on`
-- `main`: Version 3.2.3 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes und lokalem
+- `main`: Version 3.2.4 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes und lokalem
   Go-Build via `a9-cam/Dockerfile` (HA liest den Default-Branch `main`;
-  vorher zog es das dbuezas-v3.1.7-Image). `fork/main`: 3.2.3, gepusht.
+  vorher zog es das dbuezas-v3.1.7-Image). `fork/main`: 3.2.4, gepusht.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -38,7 +38,10 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   Cache – ohne das bleiben 404 und fehlende Badges trotz „Update“ sichtbar.
   Die Versionsanzeige kommt aus `config.yaml` und beweist für sich allein nicht,
   dass das Image den neuen Code enthält.
-- Go ist hier nicht installiert → `go test` lokal nicht möglich.
+- Go ist hier nicht installiert → `go test` lokal nicht möglich. 3.2.3 scheiterte
+  im HA-Build an `api.go:154 undefined: err` (Variable nur im `if`-Scope
+  deklariert); in 3.2.4 mit `err :=` behoben. Vor Pushes auf Go-Scope-Prüfung
+  achten oder den HA-Build als einzige Prüfung ansehen.
 
 ## Add-on-UI: Status-Badges & DNS-Alert (Code behoben, Image-Prüfung offen)
 
