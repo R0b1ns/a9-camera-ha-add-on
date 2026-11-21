@@ -25,6 +25,15 @@
     body { margin: 0; padding: 16px; background: var(--bg); color: var(--text);
       font: 15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     h1 { font-size: 20px; margin: 0 0 4px; }
+    .page-head { display: flex; align-items: center; justify-content: space-between;
+      gap: 16px; margin-bottom: 8px; }
+    .page-head h1 { margin: 0; }
+    .btn-add { display: inline-flex; align-items: center; gap: 6px; font: inherit;
+      font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 8px;
+      background: var(--accent); color: #fff; text-decoration: none;
+      border: 1px solid var(--accent); }
+    .btn-add:hover { filter: brightness(1.08); color: #fff; }
+    .btn-add svg { width: 14px; height: 14px; flex: none; }
     .muted { color: var(--muted); }
     .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
     .badge { font-size: 12px; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line);
@@ -56,12 +65,24 @@
     .wifi-change input { width: 100%; margin-top: 4px; padding: 7px 9px; font: inherit; font-size: 13px;
       border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); }
     .wifi-result { font-size: 13px; margin-top: 6px; }
-    .empty { margin-top: 24px; }
+    [hidden] { display: none !important; }
+    .empty { margin-top: 16px; padding: 28px 20px; text-align: center; background: var(--card);
+      border: 1px solid var(--line); border-radius: 12px; }
+    .empty-icon { width: 40px; height: 40px; margin: 0 auto 10px; display: grid; place-items: center;
+      border-radius: 12px; background: var(--code); color: var(--accent); font-size: 20px; }
+    .empty h2 { font-size: 16px; margin: 0 0 4px; }
+    .empty p { margin: 0 auto; max-width: 420px; font-size: 14px; color: var(--muted); }
   </style>
 </head>
 <body>
-  <h1>A9 Cameras</h1>
-  <div class="muted"><a href="setup.html">Add new camera (AP mode)</a></div>
+  <header class="page-head">
+    <h1>A9 Cameras</h1>
+    <a class="btn-add" data-rel="add" href="setup.html">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"
+        stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      Add Camera
+    </a>
+  </header>
   <div class="badges">
     <span class="badge" id="badge-cams">Cameras: …</span>
     <span class="badge" id="badge-dns">Cloud DNS: …</span>
@@ -70,6 +91,12 @@
   <div id="alert"></div>
   <div class="muted" id="status">Loading…</div>
   <div class="grid" id="cams"></div>
+  <div class="empty" id="empty" hidden>
+    <div class="empty-icon">◎</div>
+    <h2>No cameras connected</h2>
+    <p>Cameras retry every few minutes after a restart. For a new camera in AP mode, use
+      <b>Add Camera</b> above.</p>
+  </div>
 
   <script>
     const host = location.hostname;
@@ -80,6 +107,7 @@
     baseURL.hash = "";
     if (!baseURL.pathname.endsWith("/")) baseURL.pathname += "/";
     const rel = path => new URL(path, baseURL).href;
+    document.querySelector("[data-rel='add']").href = rel("setup.html");
     // Direct links deliberately use port 8557: the first open asks for the HA login.
     const direct = path => `http://${host}:8557/${path}`;
     const cmds = [
@@ -223,6 +251,8 @@
         ]);
       } catch (e) {
         document.getElementById("status").textContent = "Server unreachable";
+        document.getElementById("status").hidden = false;
+        document.getElementById("empty").hidden = true;
         return;
       }
       badge("badge-cams", `Cameras: ${list.length}`, list.length ? "ok" : "warn");
@@ -239,9 +269,9 @@
         `<code>${(st.local_ips || []).join(", ") || "unknown"}</code>. ` +
         `Set the DNS rewrites for <code>*.naxclow.com</code> and <code>*.naxclow.com.cn</code> ` +
         `in your router/AdGuard, then restart the cameras.</div>` : "";
-      document.getElementById("status").textContent = list.length
-        ? `${list.length} camera(s) connected`
-        : "No camera connected. Cameras retry every few minutes after a restart.";
+      document.getElementById("status").textContent = `${list.length} camera(s) connected`;
+      document.getElementById("status").hidden = list.length === 0;
+      document.getElementById("empty").hidden = list.length !== 0;
       const seen = new Set();
       for (const cam of list) {
         seen.add(cam.uid);
