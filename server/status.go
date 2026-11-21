@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // The camera resolves these names via the DHCP DNS of its network. If they do
@@ -33,7 +34,9 @@ var lookupDNS = net.DefaultResolver.LookupIPAddr
 
 func apiStatus(w http.ResponseWriter, _ *http.Request) {
 	s := statusJSON{DNSName: cloudDNSNames[0], LocalIPs: localIPs()}
-	if ips, err := lookupDNS(context.Background(), s.DNSName); err == nil && len(ips) > 0 {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if ips, err := lookupDNS(ctx, s.DNSName); err == nil && len(ips) > 0 {
 		s.DNSIP = ips[0].IP.String()
 		s.DNSOK = containsString(s.LocalIPs, s.DNSIP)
 	}

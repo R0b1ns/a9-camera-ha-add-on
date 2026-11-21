@@ -24,36 +24,38 @@ stellen. Zwei Änderungen:
 ## Aktueller Stand
 
 - Repo: `https://github.com/R0b1ns/a9-camera-ha-add-on`
-- `feature/secured-ui-wifi-setup`: `f228668` (PR-Branch, sauber)
+- `feature/secured-ui-wifi-setup`: `f228668` → `2b2a9ea` (UI-Badges/DNS-Alert)
+  → `8be81e0` (Supervisor-Scan) → aktuell (AP-Client + Helper). PR-Branch.
 - `main`: `67ce41b` (zusätzlich lokaler Go-Build via `a9-cam/Dockerfile`,
   weil HA den Default-Branch `main` liest und vorher das dbuezas-v3.1.7-Image
   zog). Version 3.2.0. **Noch kein PR.**
+- Feature-Branch Version 3.2.1. Pushes nur nach Freigabe.
 - Go ist hier nicht installiert → `go test` lokal nicht möglich, PR-CI muss prüfen.
 - `gh` ist nicht installiert.
 
-## Wichtig: offene Entscheidung Wi-Fi-Setup
+## Wi-Fi-Setup – drei Wege (Stand 21.11.2026)
 
-Die jetzige `setup.html` hängt an der HA-Oberfläche. Das ist unbrauchbar, sobald
-das Gerät für den Kamera-AP das Heimnetz verlässt. Gewünscht ist **ein Link**,
-der einmal im Browser geöffnet bleibt, während WLAN getrennt und der Kamera-AP
-verbunden wird. Danach soll die Seite die Kamera erkennen und den Wi-Fi-Wechsel
-auslösen.
+1. **Kamera online:** `POST /api/devices/<uid>/wifi` → `code 204` über die
+   bestehende TCP-Session.
+2. **Kamera im AP-Mode, HA hat WLAN:** `GET /api/wifi/accesspoints` nutzt
+   Supervisor `/network/interface/<iface>/accesspoints`, `POST
+   /api/wifi/configure-ap` verbindet HA kurz mit dem Kamera-AP, sendet
+   `LIVE_MOTION` → `code 501` → `code 502{content:{code:204}}` an
+   `192.168.169.1:6123` und verbindet danach zurück. **Die Supervisor-API gibt
+   kein gespeichertes WLAN-Passwort zurück** (`wifi_struct()` liefert nur
+   mode/auth/ssid/signal); ohne `home_password` würde der Restore das
+   Kamera-AP-Passwort im Heimnetz-Profil lassen. Deshalb muss die UI es abfragen.
+   `hassio_api: true` + `hassio_role: manager` sind nötig, `host_network: true`
+   ist bereits gesetzt.
+3. **HA hat kein WLAN:** Download-Helfer `server/web/helper/a9-wifi-setup.py`
+   (stdlib-only, keine Parameter) mit `.bat`/`.command`-Launchern. Der Nutzer
+   verbindet seinen Rechner mit dem Kamera-AP, startet den Helfer und gibt SSID
+   und Passwort ein.
 
-**Technische Realität (geprüft):** Das geht mit **reinem HTML/JS nicht**.
-Die Kamera im AP-Mode (`192.168.169.1`) spricht nur **rohes TCP auf Port 6123**
-mit eigenem Binär-Format (`prot_ap` im Alt-Projekt `a9-v720/src/v720_ap.py`,
-`set_wifi()` = `code 204`). Browser können kein TCP, weder `fetch()` noch
-WebSocket. In JADX-Quellen und `docs/uart.log` gibt es keinen HTTP-Endpunkt
-auf der Kamera. Ein Chrome-Experiment (`TCPSocket`/Direct Sockets) existiert,
-ist aber nicht standardisiert und auf iOS nicht verfügbar.
-
-→ **Geklärt (User, 21.11.2026):** Das Szenario war ein iPhone. Sobald das
-Heimnetz-WLAN weg ist, ist HA und jeder Helfer im Heimnetz für das iPhone
-unereichbar. Mit nur HTML/JS geht es damit **gar nicht**. Die AP-Variante ist
-hiermit endgültig verworfen. Es bleibt ausschließlich der Wi-Fi-Wechsel über
-die bestehende TCP-Session, solange die Kamera noch im Heimnetz online ist
-(`apiWiFi()` / code 204). Kein Helfer, kein Chrome-Experiment, keine
-Diskussion mehr darüber.
+**Reines HTML/JS direkt gegen den Kamera-AP geht nicht:** Browser können kein
+rohes TCP auf `192.168.169.1:6123`; das war der Ursprung der Helfer-Idee.
+Ein iPhone ohne Heimnetz erreicht weder HA noch den Helfer – das ist der Grund,
+warum Weg 3 einen separaten Rechner voraussetzt.
 
 ## Dateien
 
@@ -63,4 +65,8 @@ Diskussion mehr darüber.
 - `server/web/index.html` – Karten mit absoluten Direktlinks auf `:8557`
 - `server/web/setup.html` – jetzige Setup-Seite (noch HA-gebunden)
 - `a9-cam/config.yaml` – `auth_api: true`, `8557/tcp: 8557`, lokaler Build
-- `a9-cam/DOCS.md`, `CHANGELOG.md` – Doku zu 3.2.0
+- `a9-cam/DOCS.md`, `CHANGELOG.md` – Doku zu 3.2.1
+- `server/status.go` – `/api/status` (DNS-Check, WLAN-Interface)
+- `server/supervisor.go` – Supervisor-Client (Scan, Connect, Restore)
+- `server/wifi_ap.go` – AP-Client (`code 502` → `code 204`)
+- `server/web/helper/*` – downloadbarer Standalone-Helfer

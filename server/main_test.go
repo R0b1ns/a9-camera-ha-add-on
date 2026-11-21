@@ -481,6 +481,121 @@ func TestVerifyHACredentials(t *testing.T) {
 	require.False(t, verifyHACredentials("jane", "wrong"))
 }
 
+func TestStatusEndpoint(t *testing.T) {
+	_, _, url := setup(t)
+	res, err := http.Get(url + "/api/status")
+	require.NoError(t, err)
+	defer res.Body.Close()
+	var st statusJSON
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&st))
+	require.Equal(t, "v720.naxclow.com", st.DNSName)
+	require.NotEmpty(t, st.LocalIPs)
+}
+
+func TestAccessPointsEndpoint(t *testing.T) {
+	t.Setenv("SUPERVISOR_TOKEN", "test-token")
+	_, _, url := setup(t)
+	old := supervisorURL
+	apSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/network/interface/wlan0/accesspoints", r.URL.Path)
+		_, _ = io.WriteString(w, `{"result":"ok","data":{"accesspoints":[{"ssid":"NAXCLOW-123","signal":-40}]}}`)
+	}))
+	supervisorURL = apSrv.URL
+	defer func() { supervisorURL = old; apSrv.Close() }()
+
+	res, err := http.Get(url + "/api/wifi/accesspoints?iface=wlan0")
+	require.NoError(t, err)
+	defer res.Body.Close()
+	var aps []accessPoint
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&aps))
+	require.Len(t, aps, 1)
+	require.Equal(t, "NAXCLOW-123", aps[0].SSID)
+}
+
+func TestHelperDownloads(t *testing.T) {
+	_, _, url := setup(t)
+	for _, name := range []string{"a9-wifi-setup.py", "a9-wifi-setup.bat", "a9-wifi-setup.command"} {
+		res, err := http.Get(url + "/helper/" + name)
+		require.NoError(t, err)
+		b, _ := io.ReadAll(res.Body)
+		_ = res.Body.Close()
+		require.Equal(t, 200, res.StatusCode, name)
+		require.NotEmpty(t, b, name)
+	}
+}
+
+func TestWiFiAPRequiresHomePassword(t *testing.T) {
+	t.Setenv("SUPERVISOR_TOKEN", "test-token")
+	_, _, url := setup(t)
+	old := supervisorURL
+	wifiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"result":"ok","data":{"wifi":{"mode":"infrastructure","auth":"wpa-psk","ssid":"HomeNet"}}}`)
+	}))
+	supervisorURL = wifiSrv.URL
+	defer func() { supervisorURL = old; wifiSrv.Close() }()
+
+	body := `{"iface":"wlan0","ap_ssid":"NAXCLOW-1","ap_password":"apsecret","ssid":"CameraNet","password":"newpassword"}`
+	res, err := http.Post(url+"/api/wifi/configure-ap", "application/json", strings.NewReader(body))
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+}
+
+func TestWiFiAPFlowRestoresHomeWiFi(t *testing.T) {
+	t.Setenv("SUPERVISOR_TOKEN", "test-token")
+	_, _, url := setup(t)
+	old := supervisorURL
+	var mu sync.Mutex
+	var posts []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/network/interface/wlan0/info":
+			_, _ = io.WriteString(w, `{"result":"ok","data":{"wifi":{"mode":"infrastructure","auth":"wpa-psk","ssid":"HomeNet","signal":-50}}}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/network/interface/wlan0/update":
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			mu.Lock()
+			posts = append(posts, body)
+			mu.Unlock()
+			_, _ = io.WriteString(w, `{"result":"ok","data":{}}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	supervisorURL = srv.URL
+	defer func() { supervisorURL = old; srv.Close() }()
+
+	oldSet, oldWait := apSetWiFiFunc, waitForCameraAPFunc
+	apSetWiFiFunc = func(ssid, password string) error {
+		require.Equal(t, "CameraNet", ssid)
+		require.Equal(t, "newpassword", password)
+		return nil
+	}
+	waitForCameraAPFunc = func(time.Duration) bool { return true }
+	defer func() { apSetWiFiFunc, waitForCameraAPFunc = oldSet, oldWait }()
+
+	body := `{"iface":"wlan0","ap_ssid":"NAXCLOW-1","ap_password":"apsecret",` +
+		`"ssid":"CameraNet","password":"newpassword","home_password":"homepass"}`
+	res, err := http.Post(url+"/api/wifi/configure-ap", "application/json", strings.NewReader(body))
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, posts, 2)
+
+	join, ok := posts[0]["wifi"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "NAXCLOW-1", join["ssid"])
+	require.Equal(t, "apsecret", join["psk"])
+
+	// The restore must carry the user-supplied password, not the camera AP's.
+	restore, ok := posts[1]["wifi"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "HomeNet", restore["ssid"])
+	require.Equal(t, "homepass", restore["psk"])
+}
+
 func TestCameraPortDoesNotServeUI(t *testing.T) {
 	req := httptest.NewRequest("GET", "/dev/list", nil)
 	rec := httptest.NewRecorder()

@@ -80,19 +80,37 @@ Ingress or localhost). The web UI has buttons for these:
 
 ## Changing the camera's Wi-Fi
 
-Open **Wi-Fi setup** in the add-on web page (or go to `setup.html` in the same Ingress URL). Select a
-connected camera, enter the new SSID and password and submit. The add-on sends code `204` over the
-existing camera connection; the camera applies it and reconnects on the new network. It needs about
-one or two minutes and disappears from the camera list in the meantime.
+Open **Wi-Fi setup** in the add-on web page (or go to `setup.html` in the same Ingress URL).
+There are two ways:
+
+**Camera is online (STA mode):** select it from the list, enter the new SSID and password and submit.
+The add-on sends code `204` over the existing connection; the camera reconnects on the new network.
+
+**Camera is in its own AP mode (`NAXCLOW`, not configured yet):** if the Home Assistant host has Wi-Fi,
+click **Scan Wi-Fi**, pick the camera's access point, enter its AP password (usually `34974033A`) plus
+the new network and press the button. The add-on joins the camera AP via the Supervisor network API,
+sends code `204` over TCP `6123`, and immediately rejoins your home network. It needs the
+`hassio_api` permission with the `manager` role. If the host has no Wi-Fi, download the standalone
+helper from the setup page: `a9-wifi-setup.py` plus a `.bat` (Windows) or `.command` (macOS) launcher.
+Join the camera AP with that computer, run the helper, wait for the camera and enter the new SSID and
+password when asked. No parameters and no Python installation are needed (Python 3 ships with macOS
+and most Linux distributions; the Windows launcher finds it). If macOS refuses to open the downloaded
+`.command` file, run `chmod +x a9-wifi-setup.command` once in Terminal.
+
+The add-on UI also shows badges for the number of connected cameras, the state of the cloud DNS
+rewrite and whether the HA host has Wi-Fi. If `v720.naxclow.com` does not resolve to this host, a red
+warning explains which DNS rewrites are missing.
 
 Notes:
 
 - Only **2.4 GHz** networks are supported by these cameras.
-- The camera must already be online. A camera in its factory `NAXCLOW` AP mode cannot be reached this
-  way; connect it once with the V720 app or an AP-mode setup script first.
-- Make sure the DNS rewrites for `*.naxclow.com` and `*.naxclow.com.cn` also apply in the new network's
-  DHCP DNS, otherwise the camera calls the original cloud again.
-- The password is sent to the camera and is never written to the add-on log.
+- Keep the DNS rewrites for `*.naxclow.com` and `*.naxclow.com.cn` in the new network's DHCP DNS.
+- For the AP method you must enter the **current home Wi-Fi password**: Home Assistant never exposes
+  saved Wi-Fi passwords, and without it the host would rejoin the home SSID with the camera AP's
+  password. It is used only for the restore and is never written to the log.
+- If Wi-Fi is the HA host's only network connection, the UI loses contact while the host switches to
+  the camera AP. Reload the page after the operation.
+- Wi-Fi passwords are sent to the camera and are never written to the add-on log.
 
 ## Upgrading from version 2.x
 

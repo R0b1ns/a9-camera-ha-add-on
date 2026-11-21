@@ -171,6 +171,7 @@ func routes() *http.ServeMux {
 	mux.HandleFunc("GET /api/devices", apiDevices)
 	mux.HandleFunc("GET /api/status", apiStatus)
 	mux.HandleFunc("GET /api/wifi/accesspoints", apiAccessPoints)
+	mux.HandleFunc("POST /api/wifi/configure-ap", apiWiFiAP)
 	mux.HandleFunc("GET /api/events", apiEvents)
 	mux.HandleFunc("POST /api/devices/{uid}/command", apiCommandJSON)
 	mux.HandleFunc("POST /api/devices/{uid}/refresh", apiRefresh)
@@ -180,6 +181,15 @@ func routes() *http.ServeMux {
 	mux.HandleFunc("POST /login", loginPOST)
 	mux.HandleFunc("GET /setup.html", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, web, "web/setup.html")
+	})
+	mux.HandleFunc("GET /helper/{name}", func(w http.ResponseWriter, r *http.Request) {
+		name := r.PathValue("name")
+		if name != "a9-wifi-setup.py" && name != "a9-wifi-setup.bat" && name != "a9-wifi-setup.command" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+		http.ServeFileFS(w, r, web, "web/helper/"+name)
 	})
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, web, "web/index.html")

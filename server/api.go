@@ -90,6 +90,105 @@ func apiAccessPoints(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(aps)
 }
 
+type wifiAPRequest struct {
+	Iface        string `json:"iface"`
+	APSSID       string `json:"ap_ssid"`
+	APPassword   string `json:"ap_password"`
+	SSID         string `json:"ssid"`
+	Password     string `json:"password"`
+	HomePassword string `json:"home_password"`
+}
+
+// Overridable in tests: neither a real camera AP nor a 15 s wait is available
+// in CI.
+var (
+	apSetWiFiFunc       = apSetWiFi
+	waitForCameraAPFunc = waitForCameraAP
+)
+
+// apiWiFiAP configures a camera that is in its own AP mode: the HA host joins
+// the camera's Wi-Fi, sends code 204 over TCP 6123 and rejoins the old network.
+func apiWiFiAP(w http.ResponseWriter, r *http.Request) {
+	var req wifiAPRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	req.APSSID = strings.TrimSpace(req.APSSID)
+	req.SSID = strings.TrimSpace(req.SSID)
+	if req.Iface == "" {
+		if found, ok := wifiInterface(); ok {
+			req.Iface = found
+		} else {
+			http.Error(w, "no Wi-Fi interface found", http.StatusServiceUnavailable)
+			return
+		}
+	}
+	if req.APSSID == "" || req.APPassword == "" || req.SSID == "" ||
+		len([]rune(req.Password)) < 8 || len([]rune(req.Password)) > 63 {
+		http.Error(w, "ap_ssid, ap_password, ssid and password (8-63 chars) required", http.StatusBadRequest)
+		return
+	}
+
+	oldWiFi, err := supervisorWiFi(req.Iface)
+	if err != nil {
+		log.Error().Err(err).Msg("[api] cannot read current Wi-Fi config")
+		http.Error(w, "cannot read current Wi-Fi config: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	// The Supervisor API never returns saved Wi-Fi passwords. Restoring the
+	// old SSID without one would leave the camera AP's password in the home
+	// profile (or no password at all), so ask for it up front.
+	if oldWiFi.SSID != "" && oldWiFi.Auth == "wpa-psk" && req.HomePassword == "" {
+		http.Error(w, "home_password is required to restore the Home Assistant Wi-Fi connection",
+			http.StatusBadRequest)
+		return
+	}
+	log.Info().Str("iface", req.Iface).Str("ap", req.APSSID).Str("target", req.SSID).
+		Str("home_ssid", oldWiFi.SSID).Msg("[api] wifi ap: joining camera")
+
+	if err := supervisorConnectWiFi(req.Iface, wifiConfig{
+		Mode: "infrastructure", Auth: "wpa-psk", SSID: req.APSSID, PSK: req.APPassword,
+	}); err != nil {
+		http.Error(w, "cannot join camera AP: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	if !waitForCameraAPFunc(15 * time.Second) {
+		_ = restoreWiFi(req.Iface, oldWiFi, req.HomePassword)
+		http.Error(w, "camera AP did not assign an address", http.StatusGatewayTimeout)
+		return
+	}
+	err = apSetWiFiFunc(req.SSID, req.Password)
+	// Always rejoin the old network, even when the camera command failed.
+	if restoreErr := restoreWiFi(req.Iface, oldWiFi, req.HomePassword); restoreErr != nil {
+		log.Error().Err(restoreErr).Msg("[api] wifi ap: cannot restore home Wi-Fi")
+		if err == nil {
+			err = restoreErr
+		}
+	}
+	if err != nil {
+		log.Error().Err(err).Msg("[api] wifi ap: failed")
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	log.Info().Str("ssid", req.SSID).Msg("[api] wifi ap: camera configured, home Wi-Fi restored")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func waitForCameraAP(timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", apHost, apPort), time.Second)
+		if err == nil {
+			_ = conn.Close()
+			return true
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return false
+}
+
 func apiRefresh(w http.ResponseWriter, r *http.Request) {
 	dev := server.Get(r.PathValue("uid"))
 	if dev == nil {

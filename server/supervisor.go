@@ -14,9 +14,9 @@ import (
 var supervisorURL = "http://supervisor"
 
 type supervisorEnvelope struct {
-	Result string          `json:"result"`
-	Data   json.RawMessage `json:"data"`
-	Message string         `json:"message"`
+	Result  string          `json:"result"`
+	Data    json.RawMessage `json:"data"`
+	Message string          `json:"message"`
 }
 
 func supervisorRequest(method, path string, body any) (json.RawMessage, error) {
@@ -101,7 +101,7 @@ func supervisorConnectWiFi(iface string, wifi wifiConfig) error {
 }
 
 // supervisorWiFi reads the current wireless config, so we can restore it after
-// configuring the camera.
+// configuring the camera. Supervisor deliberately omits the saved PSK.
 func supervisorWiFi(iface string) (wifiConfig, error) {
 	data, err := supervisorRequest(http.MethodGet,
 		"/network/interface/"+iface+"/info", nil)
@@ -115,4 +115,26 @@ func supervisorWiFi(iface string) (wifiConfig, error) {
 		return wifiConfig{}, err
 	}
 	return info.WiFi, nil
+}
+
+// restoreWiFi rejoins the network HA used before the camera AP detour. The
+// password must be supplied by the caller: Supervisor never returns it, and
+// a restore without it would keep the camera AP's password in the profile.
+func restoreWiFi(iface string, old wifiConfig, password string) error {
+	if old.SSID == "" {
+		// HA had no Wi-Fi profile (e.g. wired only): at least disconnect from
+		// the camera AP so the host is not left on an isolated network.
+		return supervisorRequestNoData(http.MethodPost,
+			"/network/interface/"+iface+"/update", map[string]any{"enabled": false})
+	}
+	cfg := old
+	if cfg.Auth == "wpa-psk" {
+		cfg.PSK = password
+	}
+	return supervisorConnectWiFi(iface, cfg)
+}
+
+func supervisorRequestNoData(method, path string, body any) error {
+	_, err := supervisorRequest(method, path, body)
+	return err
 }
