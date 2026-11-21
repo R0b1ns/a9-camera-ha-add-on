@@ -34,9 +34,9 @@
     ol { margin: 6px 0 0; padding-left: 20px; }
     li { margin-bottom: 6px; }
     .note { border-left: 3px solid var(--warn); padding-left: 10px; color: var(--muted); }
-    #result { margin-top: 12px; min-height: 20px; }
-    #result.ok { color: var(--ok); }
-    #result.err { color: var(--warn); }
+    #result, #apresult { margin-top: 12px; min-height: 20px; }
+    #result.ok, #apresult.ok { color: var(--ok); }
+    #result.err, #apresult.err { color: var(--warn); }
   </style>
 </head>
 <body>
@@ -52,6 +52,38 @@
     <input id="pwd" type="password" autocomplete="new-password" spellcheck="false">
     <button id="send">Change Wi-Fi</button>
     <div id="result" role="status"></div>
+  </div>
+
+  <div class="card" id="apcard">
+    <h2>Camera in AP mode (not connected yet)</h2>
+    <p class="muted" id="wifi-state">Checking Home Assistant's Wi-Fi…</p>
+    <label for="apscan">Camera access point</label>
+    <select id="apscan"><option value="">– scan first –</option></select>
+    <button id="scan">Scan Wi-Fi</button>
+    <label for="appwd">Camera AP password</label>
+    <input id="appwd" type="password" autocomplete="off" spellcheck="false" placeholder="34974033A">
+    <label for="apssid">New Wi-Fi name (SSID)</label>
+    <input id="apssid" autocomplete="off" spellcheck="false" placeholder="WLAN-12358">
+    <label for="appass">New Wi-Fi password</label>
+    <input id="appass" type="password" autocomplete="new-password" spellcheck="false">
+    <button id="applyap" disabled>Connect HA to camera AP and configure</button>
+    <div id="apresult" role="status"></div>
+    <p class="note"><b>Requires LAN:</b> Home Assistant must be connected by cable and its Wi-Fi must be
+      unused. HA joins the camera's <code>NAXCLOW</code> network with its Wi-Fi, sends the new credentials
+      and disconnects again. HA stays reachable over LAN the whole time. If Wi-Fi is already in use, use
+      the downloadable helper below.</p>
+  </div>
+
+  <div class="card">
+    <h2>Home Assistant has no Wi-Fi? Use the local helper</h2>
+    <p class="muted">Download the standalone script, put it on a Mac, Windows or Linux computer and
+      join the camera's <code>NAXCLOW</code> Wi-Fi with that computer. Then run the script: it waits
+      for the camera, asks for the new network and configures it. No parameters, no Python installation.</p>
+    <p>
+      <a href="helper/a9-wifi-setup.py" download>macOS / Linux (Python 3 script)</a> ·
+      <a href="helper/a9-wifi-setup.bat" download>Windows (.bat)</a> ·
+      <a href="helper/a9-wifi-setup.command" download>macOS (.command)</a>
+    </p>
   </div>
 
   <div class="card">
@@ -131,7 +163,82 @@
       }
     };
 
+    const apscan = document.getElementById("apscan");
+    const apresult = document.getElementById("apresult");
+    const applyap = document.getElementById("applyap");
+
+    function apMessage(text, kind = "") {
+      apresult.textContent = text;
+      apresult.className = kind;
+    }
+
+    async function loadWiFiState() {
+      try {
+        const st = await (await fetch("api/status")).json();
+        document.getElementById("wifi-state").textContent = st.wifi_available
+          ? `Home Assistant WLAN: ${st.wifi_iface}`
+          : "Home Assistant has no Wi-Fi interface – use the downloadable helper.";
+        document.getElementById("scan").disabled = !st.wifi_available;
+      } catch (e) {
+        document.getElementById("wifi-state").textContent = "Cannot check Wi-Fi.";
+      }
+    }
+
+    document.getElementById("scan").onclick = async () => {
+      apMessage("Scanning…");
+      try {
+        const res = await fetch("api/wifi/accesspoints");
+        if (!res.ok) throw new Error(await res.text());
+        const aps = await res.json();
+        apscan.innerHTML = "";
+        const cams = aps.filter(a => /nax|0800c0|a9/i.test(a.ssid || ""));
+        const list = cams.length ? cams : aps;
+        for (const ap of list) {
+          const opt = document.createElement("option");
+          opt.value = ap.ssid;
+          opt.textContent = `${ap.ssid} · ${ap.signal} dBm`;
+          apscan.appendChild(opt);
+        }
+        apMessage(list.length ? `${list.length} access point(s) found.` : "No networks found.",
+          list.length ? "ok" : "err");
+        applyap.disabled = list.length === 0;
+      } catch (e) {
+        apMessage(`Scan failed: ${e.message}`, "err");
+      }
+    };
+
+    applyap.onclick = async () => {
+      const body = {
+        ap_ssid: apscan.value,
+        ap_password: document.getElementById("appwd").value,
+        ssid: document.getElementById("apssid").value,
+        password: document.getElementById("appass").value,
+      };
+      if (!body.ap_ssid || !body.ssid || body.password.length < 8) {
+        apMessage("Select the camera AP and enter the new SSID and password (8+ chars).", "err");
+        return;
+      }
+      applyap.disabled = true;
+      apMessage("Home Assistant is joining the camera AP. This can take up to 30 seconds…");
+      try {
+        const res = await fetch("api/wifi/configure-ap", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error(await res.text());
+        apMessage("Camera configured. Home Assistant is back on your home network.", "ok");
+      } catch (e) {
+        apMessage(`Failed: ${e.message}`, "err");
+      } finally {
+        document.getElementById("appwd").value = "";
+        document.getElementById("appass").value = "";
+        applyap.disabled = false;
+      }
+    };
+
     load();
+    loadWiFiState();
     setInterval(() => { if (!document.hidden) load(); }, 5000);
   </script>
 </body>

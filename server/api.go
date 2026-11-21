@@ -69,6 +69,118 @@ func apiCommandJSON(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// apiAccessPoints scans the HA host's Wi-Fi for access points (camera APs).
+func apiAccessPoints(w http.ResponseWriter, r *http.Request) {
+	iface := r.URL.Query().Get("iface")
+	if iface == "" {
+		if found, ok := wifiInterface(); ok {
+			iface = found
+		} else {
+			http.Error(w, "no Wi-Fi interface found", http.StatusServiceUnavailable)
+			return
+		}
+	}
+	aps, err := supervisorAccessPoints(iface)
+	if err != nil {
+		log.Warn().Err(err).Str("iface", iface).Msg("[api] wifi scan")
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(aps)
+}
+
+type wifiAPRequest struct {
+	Iface      string `json:"iface"`
+	APSSID     string `json:"ap_ssid"`
+	APPassword string `json:"ap_password"`
+	SSID       string `json:"ssid"`
+	Password   string `json:"password"`
+}
+
+// Overridable in tests: neither a real camera AP nor a 15 s wait is available
+// in CI.
+var (
+	apSetWiFiFunc       = apSetWiFi
+	waitForCameraAPFunc = waitForCameraAP
+)
+
+// apiWiFiAP configures a camera that is in its own AP mode: the HA host joins
+// the camera's Wi-Fi, sends code 204 over TCP 6123 and rejoins the old network.
+func apiWiFiAP(w http.ResponseWriter, r *http.Request) {
+	var req wifiAPRequest
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	req.APSSID = strings.TrimSpace(req.APSSID)
+	req.SSID = strings.TrimSpace(req.SSID)
+	if req.Iface == "" {
+		if found, ok := wifiInterface(); ok {
+			req.Iface = found
+		} else {
+			http.Error(w, "no Wi-Fi interface found", http.StatusServiceUnavailable)
+			return
+		}
+	}
+	if req.APSSID == "" || req.APPassword == "" || req.SSID == "" ||
+		len([]rune(req.Password)) < 8 || len([]rune(req.Password)) > 63 {
+		http.Error(w, "ap_ssid, ap_password, ssid and password (8-63 chars) required", http.StatusBadRequest)
+		return
+	}
+
+	// This flow assumes the HA host is on LAN and its Wi-Fi is unused. If a
+	// home Wi-Fi is active, do not touch it: we could not restore its password.
+	if active, err := supervisorWiFiActive(req.Iface); err == nil && active {
+		http.Error(w, "Wi-Fi is in use by Home Assistant; this setup requires LAN and a free Wi-Fi interface",
+			http.StatusConflict)
+		return
+	}
+	log.Info().Str("iface", req.Iface).Str("ap", req.APSSID).Str("target", req.SSID).
+		Msg("[api] wifi ap: joining camera")
+
+	if err := supervisorConnectWiFi(req.Iface, wifiConfig{
+		Mode: "infrastructure", Auth: "wpa-psk", SSID: req.APSSID, PSK: req.APPassword,
+	}); err != nil {
+		http.Error(w, "cannot join camera AP: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	if !waitForCameraAPFunc(15 * time.Second) {
+		_ = disconnectWiFi(req.Iface)
+		http.Error(w, "camera AP did not assign an address", http.StatusGatewayTimeout)
+		return
+	}
+	err = apSetWiFiFunc(req.SSID, req.Password)
+	// Always disconnect from the isolated camera AP, even on failure.
+	if disconnectErr := disconnectWiFi(req.Iface); disconnectErr != nil {
+		log.Error().Err(disconnectErr).Msg("[api] wifi ap: cannot disconnect Wi-Fi")
+		if err == nil {
+			err = disconnectErr
+		}
+	}
+	if err != nil {
+		log.Error().Err(err).Msg("[api] wifi ap: failed")
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	log.Info().Str("ssid", req.SSID).Msg("[api] wifi ap: camera configured, Wi-Fi disconnected")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func waitForCameraAP(timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", apHost, apPort), time.Second)
+		if err == nil {
+			_ = conn.Close()
+			return true
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return false
+}
+
 func apiRefresh(w http.ResponseWriter, r *http.Request) {
 	dev := server.Get(r.PathValue("uid"))
 	if dev == nil {
