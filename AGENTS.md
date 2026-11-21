@@ -25,7 +25,8 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - Repo: `https://github.com/R0b1ns/a9-camera-ha-add-on`
 - `main`: Version 3.2.1 mit Auth, Wi-Fi-Setup und lokalem Go-Build via
   `a9-cam/Dockerfile` (HA liest den Default-Branch `main`; vorher zog es das
-  dbuezas-v3.1.7-Image). Letzter Stand `c2bb75b`, auf `fork/main` gepusht.
+  dbuezas-v3.1.7-Image). `fork/main`: `c2bb75b` (gepusht); lokal folgen die
+  Link-/UI-Fixes (siehe unten), noch nicht gepusht.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -34,7 +35,7 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   kommt aus `config.yaml` und beweist nicht, dass das Image den neuen Code enthält.
 - Go ist hier nicht installiert → `go test` lokal nicht möglich.
 
-## Add-on-UI: Status-Badges & DNS-Alert (offen)
+## Add-on-UI: Status-Badges & DNS-Alert (Code behoben, Image-Prüfung offen)
 
 - Nutzer meldet: Add-on zeigt Version 3.2.1, auf der Kamera-Übersicht
   („A9 Cameras“, `GET /{$}`) sind aber **keine Badges** sichtbar – auch nicht
@@ -48,19 +49,38 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   `net.DefaultResolver`) auf eine der lokalen IPv4-Adressen auf.
 - `wifi_available` liefert `wifiInterface()`: UP-Interface mit `wl*`,
   `wireless` oder `wifi` im Namen. Sonst zeigt das Badge „HA WLAN: none“.
-- Fällt `fetch("dev/list")` aus, bricht `update()` vor dem Setzen der Badges
-  ab und schreibt „Server unreachable“; die Badges bleiben auf „…“.
-  `api/status` hat zwar einen `.catch(() => null)`, aber die Badges werden
-  nur innerhalb von `if (st)` gesetzt.
-- Alle relativen URLs (`dev/list`, `api/status`) setzen einen Ingress-Pfad mit
-  abschließendem `/` voraus; ohne Slash gehen die Requests unter
-  `/api/hassio_ingress/...` verloren.
-- Bekannter Nebenfehler: `server/main.go` kennt kein `GET /index.html`; der
-  Link „← Back to cameras“ in `setup.html` (`href="index.html"`) läuft in 404.
-- Nächste Prüfschritte: Browser-Konsole/Network ansehen, Antwort von
-  `/api/status` und `dev/list` prüfen, `view-source` auf `badge-dns` prüfen,
-  ggf. Add-on neu bauen/installieren. Kein Neustart oder Hardware-Aktion ohne
-  Absprache.
+- **Behoben in `23fe35d`:** Badges werden jetzt auch ohne `/api/status`
+  gesetzt („unavailable“); `update()` nutzt eine Ingress-Basis mit `/`.
+- **Behoben in `20aaa56`:** `GET /index.html` existiert jetzt, der
+  „← Back to cameras“-Link aus `setup.html` liefert nicht mehr 404.
+- Offen: Der neue Code muss in HA tatsächlich ausgeliefert werden (siehe
+  Dockerfile-Hinweis oben). Danach Browser-Konsole/Network und
+  `/api/status` prüfen. Kein Neustart oder Hardware-Aktion ohne Absprache.
+
+## Vergleich 3.1.7 → 3.2.1: Kamer-Links / UI
+
+- 3.1.7 (`3ed6a3c`) lieferte die komplette UI auch auf Port 80 aus
+  („old links keep working“) – daher waren `/dev/.../live` und `/snapshot`
+  öffentlich im Netzwerk erreichbar. Jetzt bedient Port 80 nur noch die
+  Cloud-API der Kameras; UI und Streams liegen auf 8557 hinter dem HA-Login.
+- Die Link-Zeilen in `index.html` selbst sind gegenüber 3.1.7 **unverändert**
+  (`rtsp://host:8556/<uid>`, `http://host:8557/dev/<uid>/live` bzw.
+  `/snapshot`). Es wurde also nichts entfernt; sichtbar war nur der
+  relative Pfad aus dem Ingress-/Button-Kontext.
+- Fehler gefunden und behoben:
+  - `setup.html` verlinkt `index.html`, `main.go` hatte aber keine Route
+    dafür → „404 page not found“ (`20aaa56`).
+  - Relative URLs ohne abschließenden `/` im Ingress-Pfad gingen verloren;
+    `index.html` baut In-Page-URLs jetzt über `rel()` mit fester Basis
+    (`23fe35d`).
+  - Direkte Links standen nur als Text im `<code>`-Block; jetzt zusätzlich
+    klickbare Buttons „Open MJPEG“ und „Open snapshot“ mit
+    `http://<host>:8557/...` (erster Aufruf → HA-Login, `23fe35d`).
+  - `DOCS.md` enthielt noch `http://127.0.0.1/dev/.../snapshot` ohne Port;
+    korrigiert auf `:8557` (`9c0b5e4`).
+- Weiterhin bewusst: `8556/tcp` ist jetzt standardmäßig leer (RTSP aus),
+  damit auch RTSP nicht ungeschützt im Netzwerk liegt. Wer go2rtc nutzt,
+  muss den Port in den Add-on-Netzwerkoptionen aktivieren.
 
 ## Wi-Fi-Setup – drei Wege (Stand 21.11.2026)
 
