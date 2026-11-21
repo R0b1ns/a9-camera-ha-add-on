@@ -87,7 +87,7 @@ the camera overview page. Enter the new SSID and password there; the add-on send
 the existing connection and the camera reconnects on the new network.
 
 For a **new camera in its own AP mode (`NAXCLOW`, not configured yet)**, power it on and hold the
-**Mode** button for about **5 seconds**. Then open **Add new camera (AP mode)** in the add-on web page
+**Mode** button for about **5 seconds**. Then click **Add Camera** in the add-on web page
 (or go to `setup.html` in the same Ingress URL). That page is only for new devices. The HA host must be
 connected by **LAN** with its Wi-Fi unused (the normal Home Assistant OS setup). Click **Scan Wi-Fi**,
 pick the camera's access point (**no AP password – the network is open**), then enter your 2.4 GHz

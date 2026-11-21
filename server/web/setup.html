@@ -164,11 +164,10 @@
   </main>
 
   <script>
-    const baseURL = new URL(location.href);
-    baseURL.search = "";
-    baseURL.hash = "";
-    if (!baseURL.pathname.endsWith("/")) baseURL.pathname += "/";
-    const rel = path => new URL(path, baseURL).href;
+    // Resolve against the *directory* of this page: new URL(".", href) turns
+    // /.../setup.html into /.../ so "index.html" resolves to /.../index.html.
+    const pageDir = new URL(".", location.href);
+    const rel = path => new URL(path, pageDir).href;
     const $ = id => document.getElementById(id);
     document.querySelector("[data-rel='back']").href = rel("index.html");
 

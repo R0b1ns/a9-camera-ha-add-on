@@ -100,13 +100,10 @@
 
   <script>
     const host = location.hostname;
-    // Ingress can be mounted with or without a trailing slash. Build in-page
-    // URLs from a base that always ends in "/" so they stay in the add-on path.
-    const baseURL = new URL(location.href);
-    baseURL.search = "";
-    baseURL.hash = "";
-    if (!baseURL.pathname.endsWith("/")) baseURL.pathname += "/";
-    const rel = path => new URL(path, baseURL).href;
+    // Resolve against the *directory* of this page: new URL(".", href) turns
+    // /.../index.html into /.../ so links never become /index.html/xyz.
+    const pageDir = new URL(".", location.href);
+    const rel = path => new URL(path, pageDir).href;
     document.querySelector("[data-rel='add']").href = rel("setup.html");
     // Direct links deliberately use port 8557: the first open asks for the HA login.
     const direct = path => `http://${host}:8557/${path}`;

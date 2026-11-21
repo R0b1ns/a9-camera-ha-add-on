@@ -662,5 +662,15 @@ func TestHTTPSetupPage(t *testing.T) {
 	defer res.Body.Close()
 	b, _ := io.ReadAll(res.Body)
 	require.Equal(t, 200, res.StatusCode)
-	require.Contains(t, string(b), "Wi-Fi setup")
+	require.Contains(t, string(b), "Add Camera")
+}
+
+func TestHTTPIndexHTML(t *testing.T) {
+	_, _, url := setup(t)
+	res, err := http.Get(url + "/index.html")
+	require.NoError(t, err)
+	defer res.Body.Close()
+	b, _ := io.ReadAll(res.Body)
+	require.Equal(t, 200, res.StatusCode)
+	require.Contains(t, string(b), "Add Camera")
 }
