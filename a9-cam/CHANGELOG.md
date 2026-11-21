@@ -4,10 +4,10 @@
 
 - New: the add-on UI shows badges for connected cameras, the cloud DNS rewrite and the HA host's
   Wi-Fi, plus an alert when `v720.naxclow.com` does not point at this host.
-- New: a camera that is still in its own `NAXCLOW` AP mode can be configured from the UI. If the HA
-  host has Wi-Fi, the add-on scans for access points, joins the camera AP, sends the Wi-Fi credentials
-  over TCP 6123 and rejoins the home network (needs `hassio_api` with the `manager` role). The current
-  home Wi-Fi password must be entered so the connection can be restored.
+- New: a camera that is still in its own `NAXCLOW` AP mode can be configured from the UI. With HA on
+  LAN and Wi-Fi unused, the add-on scans for access points, joins the camera AP, sends the Wi-Fi
+  credentials over TCP 6123 and disconnects Wi-Fi again (needs `hassio_api` with `manager`). An active
+  home Wi-Fi is left untouched.
 - New: downloadable standalone helper (`a9-wifi-setup.py` with `.bat`/`.command` launchers) for hosts
   without Wi-Fi. Join the camera AP with that computer, run the helper and answer the prompts.
 

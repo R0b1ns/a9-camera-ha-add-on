@@ -37,14 +37,14 @@ stellen. Zwei Änderungen:
 
 1. **Kamera online:** `POST /api/devices/<uid>/wifi` → `code 204` über die
    bestehende TCP-Session.
-2. **Kamera im AP-Mode, HA hat WLAN:** `GET /api/wifi/accesspoints` nutzt
-   Supervisor `/network/interface/<iface>/accesspoints`, `POST
-   /api/wifi/configure-ap` verbindet HA kurz mit dem Kamera-AP, sendet
+2. **Kamera im AP-Mode, HA per LAN + freies WLAN (Normalfall bei HA OS auf dem
+   Raspberry Pi):** `GET /api/wifi/accesspoints` nutzt Supervisor
+   `/network/interface/<iface>/accesspoints`, `POST /api/wifi/configure-ap`
+   prüft `connected == false`, verbindet HA kurz mit dem Kamera-AP, sendet
    `LIVE_MOTION` → `code 501` → `code 502{content:{code:204}}` an
-   `192.168.169.1:6123` und verbindet danach zurück. **Die Supervisor-API gibt
-   kein gespeichertes WLAN-Passwort zurück** (`wifi_struct()` liefert nur
-   mode/auth/ssid/signal); ohne `home_password` würde der Restore das
-   Kamera-AP-Passwort im Heimnetz-Profil lassen. Deshalb muss die UI es abfragen.
+   `192.168.169.1:6123` und schaltet WLAN danach wieder ab (`enabled: false`).
+   Ein aktives Heimnetz-WLAN wird mit HTTP 409 abgelehnt, weil Supervisor das
+   Passwort nie zurückgibt und ein Restore sonst das Kamera-Passwort übernähme.
    `hassio_api: true` + `hassio_role: manager` sind nötig, `host_network: true`
    ist bereits gesetzt.
 3. **HA hat kein WLAN:** Download-Helfer `server/web/helper/a9-wifi-setup.py`

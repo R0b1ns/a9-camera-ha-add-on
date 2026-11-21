@@ -100,41 +100,27 @@ func supervisorConnectWiFi(iface string, wifi wifiConfig) error {
 	return err
 }
 
-// supervisorWiFi reads the current wireless config, so we can restore it after
-// configuring the camera. Supervisor deliberately omits the saved PSK.
-func supervisorWiFi(iface string) (wifiConfig, error) {
+// supervisorWiFiActive reports whether HA currently uses this interface. The
+// AP flow is only safe when LAN is connected and Wi-Fi is free; a saved home
+// network cannot be restored because Supervisor never returns its password.
+func supervisorWiFiActive(iface string) (bool, error) {
 	data, err := supervisorRequest(http.MethodGet,
 		"/network/interface/"+iface+"/info", nil)
 	if err != nil {
-		return wifiConfig{}, err
+		return false, err
 	}
 	var info struct {
-		WiFi wifiConfig `json:"wifi"`
+		Connected bool `json:"connected"`
 	}
 	if err := json.Unmarshal(data, &info); err != nil {
-		return wifiConfig{}, err
+		return false, err
 	}
-	return info.WiFi, nil
+	return info.Connected, nil
 }
 
-// restoreWiFi rejoins the network HA used before the camera AP detour. The
-// password must be supplied by the caller: Supervisor never returns it, and
-// a restore without it would keep the camera AP's password in the profile.
-func restoreWiFi(iface string, old wifiConfig, password string) error {
-	if old.SSID == "" {
-		// HA had no Wi-Fi profile (e.g. wired only): at least disconnect from
-		// the camera AP so the host is not left on an isolated network.
-		return supervisorRequestNoData(http.MethodPost,
-			"/network/interface/"+iface+"/update", map[string]any{"enabled": false})
-	}
-	cfg := old
-	if cfg.Auth == "wpa-psk" {
-		cfg.PSK = password
-	}
-	return supervisorConnectWiFi(iface, cfg)
-}
-
-func supervisorRequestNoData(method, path string, body any) error {
-	_, err := supervisorRequest(method, path, body)
+// disconnectWiFi drops the (isolated) camera AP connection after the setup.
+func disconnectWiFi(iface string) error {
+	_, err := supervisorRequest(http.MethodPost,
+		"/network/interface/"+iface+"/update", map[string]any{"enabled": false})
 	return err
 }

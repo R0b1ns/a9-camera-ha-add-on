@@ -66,15 +66,12 @@
     <input id="apssid" autocomplete="off" spellcheck="false" placeholder="WLAN-12358">
     <label for="appass">New Wi-Fi password</label>
     <input id="appass" type="password" autocomplete="new-password" spellcheck="false">
-    <label for="homepwd">Current home Wi-Fi password <span class="muted">(to restore HA's connection)</span></label>
-    <input id="homepwd" type="password" autocomplete="current-password" spellcheck="false">
     <button id="applyap" disabled>Connect HA to camera AP and configure</button>
     <div id="apresult" role="status"></div>
-    <p class="note">Home Assistant uses its own Wi-Fi to join the camera's <code>NAXCLOW</code> network,
-      sends the new credentials and immediately rejoins your home network. Home Assistant never exposes
-      saved Wi-Fi passwords, so enter the <b>current</b> home Wi-Fi password to restore its connection.
-      If Wi-Fi is HA's only network, this page will briefly lose contact and you may need to reload it
-      afterwards. If HA has no Wi-Fi, use the downloadable helper below.</p>
+    <p class="note"><b>Requires LAN:</b> Home Assistant must be connected by cable and its Wi-Fi must be
+      unused. HA joins the camera's <code>NAXCLOW</code> network with its Wi-Fi, sends the new credentials
+      and disconnects again. HA stays reachable over LAN the whole time. If Wi-Fi is already in use, use
+      the downloadable helper below.</p>
   </div>
 
   <div class="card">
@@ -216,7 +213,6 @@
         ap_password: document.getElementById("appwd").value,
         ssid: document.getElementById("apssid").value,
         password: document.getElementById("appass").value,
-        home_password: document.getElementById("homepwd").value,
       };
       if (!body.ap_ssid || !body.ssid || body.password.length < 8) {
         apMessage("Select the camera AP and enter the new SSID and password (8+ chars).", "err");
@@ -237,7 +233,6 @@
       } finally {
         document.getElementById("appwd").value = "";
         document.getElementById("appass").value = "";
-        document.getElementById("homepwd").value = "";
         applyap.disabled = false;
       }
     };

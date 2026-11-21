@@ -524,12 +524,16 @@ func TestHelperDownloads(t *testing.T) {
 	}
 }
 
-func TestWiFiAPRequiresHomePassword(t *testing.T) {
+func TestWiFiAPRejectsActiveWiFi(t *testing.T) {
 	t.Setenv("SUPERVISOR_TOKEN", "test-token")
 	_, _, url := setup(t)
 	old := supervisorURL
-	wifiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = io.WriteString(w, `{"result":"ok","data":{"wifi":{"mode":"infrastructure","auth":"wpa-psk","ssid":"HomeNet"}}}`)
+	var posts int
+	wifiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			posts++
+		}
+		_, _ = io.WriteString(w, `{"result":"ok","data":{"connected":true}}`)
 	}))
 	supervisorURL = wifiSrv.URL
 	defer func() { supervisorURL = old; wifiSrv.Close() }()
@@ -538,10 +542,11 @@ func TestWiFiAPRequiresHomePassword(t *testing.T) {
 	res, err := http.Post(url+"/api/wifi/configure-ap", "application/json", strings.NewReader(body))
 	require.NoError(t, err)
 	defer res.Body.Close()
-	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+	require.Equal(t, http.StatusConflict, res.StatusCode)
+	require.Zero(t, posts, "an active home Wi-Fi must not be changed")
 }
 
-func TestWiFiAPFlowRestoresHomeWiFi(t *testing.T) {
+func TestWiFiAPFlowDisconnectsWiFi(t *testing.T) {
 	t.Setenv("SUPERVISOR_TOKEN", "test-token")
 	_, _, url := setup(t)
 	old := supervisorURL
@@ -550,7 +555,7 @@ func TestWiFiAPFlowRestoresHomeWiFi(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/network/interface/wlan0/info":
-			_, _ = io.WriteString(w, `{"result":"ok","data":{"wifi":{"mode":"infrastructure","auth":"wpa-psk","ssid":"HomeNet","signal":-50}}}`)
+			_, _ = io.WriteString(w, `{"result":"ok","data":{"connected":false}}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/network/interface/wlan0/update":
 			var body map[string]any
 			_ = json.NewDecoder(r.Body).Decode(&body)
@@ -575,7 +580,7 @@ func TestWiFiAPFlowRestoresHomeWiFi(t *testing.T) {
 	defer func() { apSetWiFiFunc, waitForCameraAPFunc = oldSet, oldWait }()
 
 	body := `{"iface":"wlan0","ap_ssid":"NAXCLOW-1","ap_password":"apsecret",` +
-		`"ssid":"CameraNet","password":"newpassword","home_password":"homepass"}`
+		`"ssid":"CameraNet","password":"newpassword"}`
 	res, err := http.Post(url+"/api/wifi/configure-ap", "application/json", strings.NewReader(body))
 	require.NoError(t, err)
 	defer res.Body.Close()
@@ -589,11 +594,8 @@ func TestWiFiAPFlowRestoresHomeWiFi(t *testing.T) {
 	require.Equal(t, "NAXCLOW-1", join["ssid"])
 	require.Equal(t, "apsecret", join["psk"])
 
-	// The restore must carry the user-supplied password, not the camera AP's.
-	restore, ok := posts[1]["wifi"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "HomeNet", restore["ssid"])
-	require.Equal(t, "homepass", restore["psk"])
+	// Afterwards Wi-Fi is switched off again; LAN keeps HA reachable.
+	require.Equal(t, false, posts[1]["enabled"])
 }
 
 func TestCameraPortDoesNotServeUI(t *testing.T) {
