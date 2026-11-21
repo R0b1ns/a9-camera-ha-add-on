@@ -25,7 +25,7 @@ stellen. Zwei Änderungen:
 
 - Repo: `https://github.com/R0b1ns/a9-camera-ha-add-on`
 - `feature/secured-ui-wifi-setup`: `f228668` → `2b2a9ea` (UI-Badges/DNS-Alert)
-  → `8be81e0` (Supervisor-Scan) → aktuell (AP-Client + Helper). PR-Branch.
+  → `8be81e0` (Supervisor-Scan) → `1124d21` (AP-Client + Helper). PR-Branch.
 - `main`: `67ce41b` (zusätzlich lokaler Go-Build via `a9-cam/Dockerfile`,
   weil HA den Default-Branch `main` liest und vorher das dbuezas-v3.1.7-Image
   zog). Version 3.2.0. **Noch kein PR.**
