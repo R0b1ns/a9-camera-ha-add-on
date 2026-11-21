@@ -182,6 +182,10 @@ func routes() *http.ServeMux {
 	mux.HandleFunc("GET /setup.html", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, web, "web/setup.html")
 	})
+	// setup.html links back to index.html; without this route the link 404s.
+	mux.HandleFunc("GET /index.html", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFileFS(w, r, web, "web/index.html")
+	})
 	mux.HandleFunc("GET /helper/{name}", func(w http.ResponseWriter, r *http.Request) {
 		name := r.PathValue("name")
 		if name != "a9-wifi-setup.py" && name != "a9-wifi-setup.bat" && name != "a9-wifi-setup.command" {
