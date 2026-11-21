@@ -86,12 +86,13 @@ For a camera that is **already connected**, use the **Change Wi-Fi** form direct
 the camera overview page. Enter the new SSID and password there; the add-on sends code `204` over
 the existing connection and the camera reconnects on the new network.
 
-For a **new camera in its own AP mode (`NAXCLOW`, not configured yet)**, open
-**Add new camera (AP mode)** in the add-on web page (or go to `setup.html` in the same Ingress URL).
-That page is only for new devices. The HA host must be connected by
-**LAN** with its Wi-Fi unused (the normal Home Assistant OS setup). Click **Scan Wi-Fi**, pick the
-camera's access point, enter its AP password (usually `34974033A`) plus the new network and press the
-button. The add-on joins the camera AP via the Supervisor network API, sends code `204` over TCP
+For a **new camera in its own AP mode (`NAXCLOW`, not configured yet)**, power it on and hold the
+**Mode** button for about **5 seconds**. Then open **Add new camera (AP mode)** in the add-on web page
+(or go to `setup.html` in the same Ingress URL). That page is only for new devices. The HA host must be
+connected by **LAN** with its Wi-Fi unused (the normal Home Assistant OS setup). Click **Scan Wi-Fi**,
+pick the camera's access point (**no AP password – the network is open**), then enter your 2.4 GHz
+home network and its password. The add-on joins the camera AP via the Supervisor network API, sends
+code `204` over TCP
 `6123`, and disconnects Wi-Fi again afterwards. HA stays reachable over LAN throughout. It needs the
 `hassio_api` permission with the `manager` role; if Wi-Fi is already in use, the request is refused.
 If the host has no usable Wi-Fi, download the standalone helper from the setup page:

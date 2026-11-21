@@ -8,7 +8,8 @@ It has two parts, both in this repository:
 
 - **Add-on** (`a9-cam/`): pretends to be the camera cloud. The cameras connect to it, and it serves their
   video as MJPEG, JPEG snapshots and RTSP. Small Go program, no Python and no FFmpeg. Direct links need
-  a Home Assistant login, and the add-on page has a Wi-Fi setup form.
+  a Home Assistant login. The add-on page has a Change Wi-Fi form on every camera card and a separate
+  setup page for new cameras in AP mode.
 - **Integration** (`custom_components/a9_cam/`): adds each camera to Home Assistant as a device with a
   live camera entity, switches, sensors and buttons. It finds the add-on by itself.
 

@@ -26,10 +26,10 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 ## Aktueller Stand
 
 - Repo: `https://github.com/R0b1ns/a9-camera-ha-add-on`
-- `main`: Version 3.2.6 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix und
-  lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den Default-Branch `main`;
-  vorher zog es das dbuezas-v3.1.7-Image). `fork/main`: 3.2.5, gepusht;
-  3.2.6 steht zum Push an.
+- `main`: Version 3.2.7 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
+  neuem AP-Setup-UI und lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den
+  Default-Branch `main`; vorher zog es das dbuezas-v3.1.7-Image).
+  `fork/main`: 3.2.6, gepusht; 3.2.7 steht zum Push an.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -98,6 +98,14 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   kein „(direct link, HA login)“ mehr; die direkten URLs bleiben als Text.
   „Change Wi-Fi“ direkt auf jeder Kamera-Karte; `setup.html` nur noch für neue
   Geräte im AP-Mode („Add new camera (AP mode)“).
+- **Behoben in `1029b47` / `bfd6d93` (3.2.7):** Der Kamera-AP ist **offen** –
+   kein AP-Passwort mehr in UI und API. `POST /api/wifi/configure-ap` sendet
+   `auth: "open"` ohne `psk` (optionales `ap_password` für gesicherte APs bleibt
+   aus Kompatibilitätsgründen erhalten; Regressionstest
+   `TestWiFiAPFlowJoinsOpenCameraAP`). `setup.html` neu gestaltet: integrierte
+   Schritte (Modus-Taste 5 s, LAN-Voraussetzung, 2,4-GHz-WLAN, DNS-Rewrites),
+   Statusmeldungen direkt an den Feldern statt weit entfernter Ergebnisbox,
+   URLs über `rel()` ingress-sicher.
 - Weiterhin bewusst: `8556/tcp` ist jetzt standardmäßig leer (RTSP aus),
   damit auch RTSP nicht ungeschützt im Netzwerk liegt. Wer go2rtc nutzt,
   muss den Port in den Add-on-Netzwerkoptionen aktivieren.

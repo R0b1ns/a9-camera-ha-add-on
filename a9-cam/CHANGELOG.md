@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.2.7
+
+- Fix: the camera's AP-mode network is open, so the AP password field is gone. The add-on now joins it
+  with `auth: open` and no PSK (a supplied `ap_password` is still accepted for protected APs).
+- Change: redesigned the new-camera setup page with numbered steps (hold Mode for 5 s, LAN requirement,
+  2.4 GHz Wi-Fi, DNS rewrites) and status messages next to the relevant fields.
+
 ## 3.2.6
 
 - Fix: the login page no longer shows `%!s(MISSING)`. The CSS `width:100%` was parsed by
