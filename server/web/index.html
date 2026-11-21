@@ -52,12 +52,16 @@
     button, a.btn { font: inherit; font-size: 13px; padding: 5px 10px; border-radius: 6px; border: 1px solid var(--line);
       background: var(--card); color: var(--text); cursor: pointer; text-decoration: none; }
     button:hover, a.btn:hover { border-color: var(--accent); color: var(--accent); }
+    button:disabled { opacity: .5; cursor: default; }
+    .wifi-change input { width: 100%; margin-top: 4px; padding: 7px 9px; font: inherit; font-size: 13px;
+      border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); }
+    .wifi-result { font-size: 13px; margin-top: 6px; }
     .empty { margin-top: 24px; }
   </style>
 </head>
 <body>
   <h1>A9 Cameras</h1>
-  <div class="muted"><a href="setup.html">Wi-Fi setup</a></div>
+  <div class="muted"><a href="setup.html">Add new camera (AP mode)</a></div>
   <div class="badges">
     <span class="badge" id="badge-cams">Cameras: …</span>
     <span class="badge" id="badge-dns">Cloud DNS: …</span>
@@ -94,26 +98,54 @@
         <div class="body">
           <div class="title"><b></b><span class="muted state"></span></div>
           <div class="row"><div class="label">RTSP (MJPEG + audio)</div><code class="rtsp"></code></div>
-          <div class="row"><div class="label">MJPEG (direct link, HA login)</div><code class="mjpeg"></code>
-            <div class="buttons"><a class="btn" target="_blank" rel="noopener" data-direct="mjpeg">Open MJPEG</a></div></div>
-          <div class="row"><div class="label">Snapshot (direct link, HA login)</div><code class="snap"></code>
-            <div class="buttons"><a class="btn" target="_blank" rel="noopener" data-direct="snap">Open snapshot</a></div></div>
+          <div class="row"><div class="label">MJPEG</div><code class="mjpeg"></code></div>
+          <div class="row"><div class="label">Snapshot</div><code class="snap"></code></div>
           <div class="row buttons">
             <button class="live">Live</button>
-            <a class="btn" target="_blank" data-rel="snapshot">Snapshot (Ingress)</a>
+            <a class="btn" target="_blank" data-rel="snapshot">Snapshot</a>
             ${cmds.map(([name, q]) => `<button data-q="${q}">${name}</button>`).join("")}
+          </div>
+          <div class="row wifi-change">
+            <div class="label">Change Wi-Fi (connected camera)</div>
+            <input class="wifi-ssid" autocomplete="off" spellcheck="false" placeholder="New Wi-Fi name (SSID)">
+            <input class="wifi-pwd" type="password" autocomplete="new-password" spellcheck="false" placeholder="Password (8+ chars)">
+            <div class="buttons"><button class="wifi-send">Change Wi-Fi</button></div>
+            <div class="wifi-result muted"></div>
           </div>
         </div>`;
       el.querySelector("b").textContent = cam.uid;
       el.querySelector(".rtsp").textContent = `rtsp://${host}:8556/${cam.uid}`;
       // Direct links keep working; authMiddleware sends unknown browsers to the HA login page.
-      const mjpegURL = direct(`dev/${cam.uid}/live`);
-      const snapURL = direct(`dev/${cam.uid}/snapshot`);
-      el.querySelector(".mjpeg").textContent = mjpegURL;
-      el.querySelector(".snap").textContent = snapURL;
-      el.querySelector('[data-direct="mjpeg"]').href = mjpegURL;
-      el.querySelector('[data-direct="snap"]').href = snapURL;
+      el.querySelector(".mjpeg").textContent = direct(`dev/${cam.uid}/live`);
+      el.querySelector(".snap").textContent = direct(`dev/${cam.uid}/snapshot`);
       el.querySelector('[data-rel="snapshot"]').href = rel(`dev/${cam.uid}/snapshot`);
+
+      const wifiSend = el.querySelector(".wifi-send");
+      const wifiResult = el.querySelector(".wifi-result");
+      wifiSend.onclick = async () => {
+        const ssid = el.querySelector(".wifi-ssid").value.trim();
+        const pwd = el.querySelector(".wifi-pwd").value;
+        if (!ssid || pwd.length < 8) {
+          wifiResult.textContent = "Enter an SSID and a password of at least 8 characters.";
+          return;
+        }
+        wifiSend.disabled = true;
+        wifiResult.textContent = "Sending…";
+        try {
+          const res = await fetch(rel(`api/devices/${encodeURIComponent(cam.uid)}/wifi`), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ssid, password: pwd }),
+          });
+          if (!res.ok) throw new Error(await res.text());
+          wifiResult.textContent = "Sent. The camera will reboot and reconnect.";
+          el.querySelector(".wifi-pwd").value = "";
+        } catch (e) {
+          wifiResult.textContent = `Failed: ${e.message}`;
+        } finally {
+          wifiSend.disabled = false;
+        }
+      };
       const img = el.querySelector("img");
       const live = el.querySelector(".live");
       let stop = null;
