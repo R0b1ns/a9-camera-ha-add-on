@@ -89,7 +89,7 @@ type wifiConfig struct {
 	Mode string `json:"mode"`
 	Auth string `json:"auth"`
 	SSID string `json:"ssid"`
-	PSK  string `json:"psk"`
+	PSK  string `json:"psk,omitempty"`
 }
 
 // supervisorConnectWiFi joins an SSID. The wifi block replaces the whole

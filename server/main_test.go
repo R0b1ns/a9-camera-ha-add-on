@@ -598,6 +598,56 @@ func TestWiFiAPFlowDisconnectsWiFi(t *testing.T) {
 	require.Equal(t, false, posts[1]["enabled"])
 }
 
+func TestWiFiAPFlowJoinsOpenCameraAP(t *testing.T) {
+	t.Setenv("SUPERVISOR_TOKEN", "test-token")
+	_, _, url := setup(t)
+	old := supervisorURL
+	var mu sync.Mutex
+	var posts []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/network/interface/wlan0/info":
+			_, _ = io.WriteString(w, `{"result":"ok","data":{"connected":false}}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/network/interface/wlan0/update":
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			mu.Lock()
+			posts = append(posts, body)
+			mu.Unlock()
+			_, _ = io.WriteString(w, `{"result":"ok","data":{}}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	supervisorURL = srv.URL
+	defer func() { supervisorURL = old; srv.Close() }()
+
+	oldSet, oldWait := apSetWiFiFunc, waitForCameraAPFunc
+	apSetWiFiFunc = func(ssid, password string) error {
+		require.Equal(t, "CameraNet", ssid)
+		require.Equal(t, "newpassword", password)
+		return nil
+	}
+	waitForCameraAPFunc = func(time.Duration) bool { return true }
+	defer func() { apSetWiFiFunc, waitForCameraAPFunc = oldSet, oldWait }()
+
+	// The camera AP is open: the request has no ap_password.
+	body := `{"iface":"wlan0","ap_ssid":"NAXCLOW-1","ssid":"CameraNet","password":"newpassword"}`
+	res, err := http.Post(url+"/api/wifi/configure-ap", "application/json", strings.NewReader(body))
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, posts, 2)
+	join, ok := posts[0]["wifi"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "NAXCLOW-1", join["ssid"])
+	require.Equal(t, "open", join["auth"])
+	require.NotContains(t, join, "psk")
+	require.Equal(t, false, posts[1]["enabled"])
+}
+
 func TestCameraPortDoesNotServeUI(t *testing.T) {
 	req := httptest.NewRequest("GET", "/dev/list", nil)
 	rec := httptest.NewRecorder()

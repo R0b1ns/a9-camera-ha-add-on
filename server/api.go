@@ -124,9 +124,11 @@ func apiWiFiAP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if req.APSSID == "" || req.APPassword == "" || req.SSID == "" ||
+	// The camera's AP-mode network is open: no ap_password is needed. The
+	// optional field is still accepted for cameras with a protected AP.
+	if req.APSSID == "" || req.SSID == "" ||
 		len([]rune(req.Password)) < 8 || len([]rune(req.Password)) > 63 {
-		http.Error(w, "ap_ssid, ap_password, ssid and password (8-63 chars) required", http.StatusBadRequest)
+		http.Error(w, "ap_ssid, ssid and password (8-63 chars) required", http.StatusBadRequest)
 		return
 	}
 
@@ -140,8 +142,12 @@ func apiWiFiAP(w http.ResponseWriter, r *http.Request) {
 	log.Info().Str("iface", req.Iface).Str("ap", req.APSSID).Str("target", req.SSID).
 		Msg("[api] wifi ap: joining camera")
 
+	auth, psk := "open", ""
+	if req.APPassword != "" {
+		auth, psk = "wpa-psk", req.APPassword
+	}
 	if err := supervisorConnectWiFi(req.Iface, wifiConfig{
-		Mode: "infrastructure", Auth: "wpa-psk", SSID: req.APSSID, PSK: req.APPassword,
+		Mode: "infrastructure", Auth: auth, SSID: req.APSSID, PSK: psk,
 	}); err != nil {
 		http.Error(w, "cannot join camera AP: "+err.Error(), http.StatusBadGateway)
 		return
