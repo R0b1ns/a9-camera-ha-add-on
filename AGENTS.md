@@ -5,8 +5,7 @@
 
 ## Ziel
 
-Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln und später einen PR
-stellen. Zwei Änderungen:
+Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 
 1. **Auth:** Direktlinks (z. B. `http://<ha>:8557/dev/<uid>/snapshot`) bleiben
    erhalten, erfordern aber einen Home-Assistant-Login.
@@ -24,14 +23,11 @@ stellen. Zwei Änderungen:
 ## Aktueller Stand
 
 - Repo: `https://github.com/R0b1ns/a9-camera-ha-add-on`
-- `feature/secured-ui-wifi-setup`: `f228668` → `2b2a9ea` (UI-Badges/DNS-Alert)
-  → `8be81e0` (Supervisor-Scan) → `1124d21` (AP-Client + Helper). PR-Branch.
-- `main`: `67ce41b` (zusätzlich lokaler Go-Build via `a9-cam/Dockerfile`,
-  weil HA den Default-Branch `main` liest und vorher das dbuezas-v3.1.7-Image
-  zog). Version 3.2.0. **Noch kein PR.**
-- Feature-Branch Version 3.2.1. Pushes nur nach Freigabe.
-- Go ist hier nicht installiert → `go test` lokal nicht möglich, PR-CI muss prüfen.
-- `gh` ist nicht installiert.
+- `main` enthält Auth und Wi-Fi-Setup (Version 3.2.1) sowie den lokalen
+  Go-Build via `a9-cam/Dockerfile`, weil HA den Default-Branch `main` liest
+  und vorher das dbuezas-v3.1.7-Image zog.
+- Pushes nur nach Freigabe.
+- Go ist hier nicht installiert → `go test` lokal nicht möglich.
 
 ## Wi-Fi-Setup – drei Wege (Stand 21.11.2026)
 
