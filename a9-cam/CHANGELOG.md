@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.2.8
+
+- Fix: "Back to cameras" no longer returns 404. In-page URLs were resolved against the page file
+  (`/setup.html/index.html`); they now resolve against its directory.
+- Change: the overview has an "Add Camera" button instead of a plain text link, and an empty-state
+  card when no camera is connected.
+
 ## 3.2.7
 
 - Fix: the camera's AP-mode network is open, so the AP password field is gone. The add-on now joins it

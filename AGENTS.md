@@ -26,10 +26,10 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 ## Aktueller Stand
 
 - Repo: `https://github.com/R0b1ns/a9-camera-ha-add-on`
-- `main`: Version 3.2.7 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
+- `main`: Version 3.2.8 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
   neuem AP-Setup-UI und lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den
   Default-Branch `main`; vorher zog es das dbuezas-v3.1.7-Image).
-  `fork/main`: 3.2.6, gepusht; 3.2.7 steht zum Push an.
+  `fork/main`: 3.2.7, gepusht; 3.2.8 steht zum Push an.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -106,6 +106,13 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
    Schritte (Modus-Taste 5 s, LAN-Voraussetzung, 2,4-GHz-WLAN, DNS-Rewrites),
    Statusmeldungen direkt an den Feldern statt weit entfernter Ergebnisbox,
    URLs über `rel()` ingress-sicher.
+- **Behoben in `1c03876` / `be6cccc` (3.2.8):** Übersicht mit „Add Camera“
+  statt Textlink und Leerzustands-Karte. Der „← Back to cameras“-404 kam daher,
+  dass `rel()` die Basis aus der Datei-URL statt aus dem Verzeichnis baute
+  (`/setup.html/index.html`). Jetzt `new URL(".", location.href)`; Regression:
+  `TestHTTPIndexHTML` prüft die Route, `TestHTTPSetupPage` den neuen Text.
+  **Wichtig:** `@media`-Darkmode und alle relativen URLs hängen von dieser
+  Basis ab – bei weiteren Seiten nicht wieder `pathname += "/"` verwenden.
 - Weiterhin bewusst: `8556/tcp` ist jetzt standardmäßig leer (RTSP aus),
   damit auch RTSP nicht ungeschützt im Netzwerk liegt. Wer go2rtc nutzt,
   muss den Port in den Add-on-Netzwerkoptionen aktivieren.
