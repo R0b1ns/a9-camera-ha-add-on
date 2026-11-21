@@ -23,11 +23,44 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 ## Aktueller Stand
 
 - Repo: `https://github.com/R0b1ns/a9-camera-ha-add-on`
-- `main` enthält Auth und Wi-Fi-Setup (Version 3.2.1) sowie den lokalen
-  Go-Build via `a9-cam/Dockerfile`, weil HA den Default-Branch `main` liest
-  und vorher das dbuezas-v3.1.7-Image zog.
-- Pushes nur nach Freigabe.
+- `main`: Version 3.2.1 mit Auth, Wi-Fi-Setup und lokalem Go-Build via
+  `a9-cam/Dockerfile` (HA liest den Default-Branch `main`; vorher zog es das
+  dbuezas-v3.1.7-Image). Letzter Stand `c2bb75b`, auf `fork/main` gepusht.
+- `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
+- Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
+  gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
+- `a9-cam/Dockerfile` klont beim Build `main` (`A9CAM_REF=main`): Code-Änderungen
+  wirken in HA erst nach einem Add-on-Update/Rebuild. Die Versionsanzeige 3.2.1
+  kommt aus `config.yaml` und beweist nicht, dass das Image den neuen Code enthält.
 - Go ist hier nicht installiert → `go test` lokal nicht möglich.
+
+## Add-on-UI: Status-Badges & DNS-Alert (offen)
+
+- Nutzer meldet: Add-on zeigt Version 3.2.1, auf der Kamera-Übersicht
+  („A9 Cameras“, `GET /{$}`) sind aber **keine Badges** sichtbar – auch nicht
+  die Platzhalter „Cameras: …“ / „Cloud DNS: …“. Auf `Wi-Fi setup` gibt es
+  bewusst keine Badges, nur den Text „Checking Home Assistant's Wi-Fi…“.
+- Implementierung: `server/web/index.html` Zeilen 61–66 (`badge-cams`,
+  `badge-dns`, `badge-wifi`, `<div id="alert">`), befüllt in `update()`
+  (Zeilen 166–189). Datenquelle: `GET /api/status` (`server/status.go`).
+- Der Alert erscheint **nur bei `dns_ok == false`**; bei korrekten Rewrites
+  bleibt er leer. `dns_ok` = `v720.naxclow.com` löst (2 s Timeout,
+  `net.DefaultResolver`) auf eine der lokalen IPv4-Adressen auf.
+- `wifi_available` liefert `wifiInterface()`: UP-Interface mit `wl*`,
+  `wireless` oder `wifi` im Namen. Sonst zeigt das Badge „HA WLAN: none“.
+- Fällt `fetch("dev/list")` aus, bricht `update()` vor dem Setzen der Badges
+  ab und schreibt „Server unreachable“; die Badges bleiben auf „…“.
+  `api/status` hat zwar einen `.catch(() => null)`, aber die Badges werden
+  nur innerhalb von `if (st)` gesetzt.
+- Alle relativen URLs (`dev/list`, `api/status`) setzen einen Ingress-Pfad mit
+  abschließendem `/` voraus; ohne Slash gehen die Requests unter
+  `/api/hassio_ingress/...` verloren.
+- Bekannter Nebenfehler: `server/main.go` kennt kein `GET /index.html`; der
+  Link „← Back to cameras“ in `setup.html` (`href="index.html"`) läuft in 404.
+- Nächste Prüfschritte: Browser-Konsole/Network ansehen, Antwort von
+  `/api/status` und `dev/list` prüfen, `view-source` auf `badge-dns` prüfen,
+  ggf. Add-on neu bauen/installieren. Kein Neustart oder Hardware-Aktion ohne
+  Absprache.
 
 ## Wi-Fi-Setup – drei Wege (Stand 21.11.2026)
 
