@@ -34,28 +34,17 @@
     ol { margin: 6px 0 0; padding-left: 20px; }
     li { margin-bottom: 6px; }
     .note { border-left: 3px solid var(--warn); padding-left: 10px; color: var(--muted); }
-    #result, #apresult { margin-top: 12px; min-height: 20px; }
-    #result.ok, #apresult.ok { color: var(--ok); }
-    #result.err, #apresult.err { color: var(--warn); }
+    #apresult { margin-top: 12px; min-height: 20px; }
+    #apresult.ok { color: var(--ok); }
+    #apresult.err { color: var(--warn); }
   </style>
 </head>
 <body>
-  <h1>A9 Camera – Wi-Fi setup</h1>
+  <h1>New camera – Wi-Fi setup</h1>
   <div class="muted"><a href="index.html">← Back to cameras</a></div>
 
-  <div class="card">
-    <label for="cam">Camera</label>
-    <select id="cam"></select>
-    <label for="ssid">New Wi-Fi name (SSID)</label>
-    <input id="ssid" autocomplete="off" spellcheck="false" placeholder="WLAN-12358">
-    <label for="pwd">Wi-Fi password</label>
-    <input id="pwd" type="password" autocomplete="new-password" spellcheck="false">
-    <button id="send">Change Wi-Fi</button>
-    <div id="result" role="status"></div>
-  </div>
-
   <div class="card" id="apcard">
-    <h2>Camera in AP mode (not connected yet)</h2>
+    <h2>New camera in its own access point (AP mode)</h2>
     <p class="muted" id="wifi-state">Checking Home Assistant's Wi-Fi…</p>
     <label for="apscan">Camera access point</label>
     <select id="apscan"><option value="">– scan first –</option></select>
@@ -89,80 +78,24 @@
   <div class="card">
     <h2>How it works</h2>
     <ol>
-      <li>Open this page from the <b>A9 Camera add-on panel in Home Assistant</b>. The page is only
-          reachable when you are logged in to Home Assistant.</li>
-      <li>Make sure the camera appears in the list above. The change is sent over its existing
-          connection, so the camera must be online. If it is not online, power-cycle it and wait a
-          few minutes until it reconnects.</li>
-      <li>Enter the name and password of the new network and press <b>Change Wi-Fi</b>. Use a
-          <b>2.4&nbsp;GHz</b> network – these cameras do not support 5&nbsp;GHz.</li>
-      <li>The camera applies the change immediately and reboots. It disappears from the list for a
-          minute or two and then comes back on the new network.</li>
+      <li>This page is only for <b>new cameras that are not connected yet</b> and broadcast their own
+          <code>NAXCLOW</code> access point. Open it from the <b>A9 Camera add-on panel in Home
+          Assistant</b>; a login is required.</li>
+      <li>Home Assistant must be on <b>LAN</b> with its Wi-Fi unused. Scan for access points, select
+          the camera AP, enter its password (usually <code>34974033A</code>) and the new network.
+          Use a <b>2.4&nbsp;GHz</b> network – these cameras do not support 5&nbsp;GHz.</li>
+      <li>Home Assistant briefly joins the camera AP, sends the credentials and disconnects again.
+          It stays reachable over LAN throughout.</li>
       <li>Keep the DNS rewrites <code>*.naxclow.com</code> and <code>*.naxclow.com.cn</code>
-          pointing at the Home Assistant host in the <b>new</b> network's DHCP DNS as well.
+          pointing at the Home Assistant host in the <b>new</b> network's DHCP DNS.
           Otherwise the camera will call the original cloud again.</li>
     </ol>
-    <p class="note">If the camera has never joined a Wi-Fi network (it is in its own
-      <code>NAXCLOW</code> access point mode), this page cannot reach it yet. Connect it to any
-      network once with the V720 app or the AP-mode setup script, then use this page to move it.</p>
+    <p class="note">For a camera that is <b>already connected</b>, use the <b>Change Wi-Fi</b> form
+      directly on its card on the camera overview page. That sends the change over the existing
+      connection; it does not need AP mode.</p>
   </div>
 
   <script>
-    const select = document.getElementById("cam");
-    const result = document.getElementById("result");
-    const send = document.getElementById("send");
-
-    function message(text, kind = "") {
-      result.textContent = text;
-      result.className = kind;
-    }
-
-    async function load() {
-      try {
-        const list = await (await fetch("dev/list")).json();
-        const previous = select.value;
-        select.innerHTML = "";
-        for (const cam of list) {
-          const opt = document.createElement("option");
-          opt.value = cam.uid;
-          opt.textContent = `${cam.uid} · ${cam.host}`;
-          select.appendChild(opt);
-        }
-        if (previous) select.value = previous;
-        send.disabled = list.length === 0;
-        if (!list.length) message("No camera connected. See step 2 below.", "err");
-      } catch (e) {
-        send.disabled = true;
-        message("Cannot reach the add-on. Open this page from the Home Assistant panel.", "err");
-      }
-    }
-
-    send.onclick = async () => {
-      const uid = select.value;
-      const ssid = document.getElementById("ssid").value;
-      const pwd = document.getElementById("pwd").value;
-      if (!uid || !ssid.trim() || pwd.length < 8) {
-        message("Choose a camera, enter an SSID and a password of at least 8 characters.", "err");
-        return;
-      }
-      send.disabled = true;
-      message("Sending…");
-      try {
-        const res = await fetch(`api/devices/${encodeURIComponent(uid)}/wifi`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ssid, password: pwd })
-        });
-        if (!res.ok) throw new Error(await res.text());
-        message("Wi-Fi change sent. The camera will reboot and reconnect. This page will update itself.", "ok");
-      } catch (e) {
-        message(`Failed: ${e.message}`, "err");
-      } finally {
-        document.getElementById("pwd").value = "";
-        send.disabled = false;
-      }
-    };
-
     const apscan = document.getElementById("apscan");
     const apresult = document.getElementById("apresult");
     const applyap = document.getElementById("applyap");
@@ -237,9 +170,7 @@
       }
     };
 
-    load();
     loadWiFiState();
-    setInterval(() => { if (!document.hidden) load(); }, 5000);
   </script>
 </body>
 </html>
