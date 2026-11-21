@@ -31,6 +31,8 @@ skip the login form.
 
 Port 80 serves only the cameras' cloud API, so old links without a port (for example
 `http://HA_IP/dev/.../snapshot`) no longer expose video to the whole network. Always use port 8557.
+The add-on page shows the full direct URLs again, with buttons to open MJPEG and snapshot; the first
+open asks for the Home Assistant login.
 
 If your setup sends ingress traffic from a different address (for example a reverse proxy), add that
 network to the `ui_allowed_cidrs` option, e.g. `192.168.1.0/24`. Those addresses are treated as already
@@ -64,7 +66,7 @@ streams:
 ### Generic Camera integration
 
 - Stream source: `rtsp://127.0.0.1:8556/CAMERA_ID`
-- Still image: `http://127.0.0.1/dev/CAMERA_ID/snapshot`
+- Still image: `http://127.0.0.1:8557/dev/CAMERA_ID/snapshot`
 
 ## Commands
 
