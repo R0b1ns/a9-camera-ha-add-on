@@ -14,8 +14,8 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 ## Harte Regeln
 
 - **Nichts installieren** (kein brew/pip/apt/go-Download).
-- **Commits in jedem Zwischenschritt** (User-Vorgabe 21.11.2026). **Pushes nur
-  nach ausdrücklicher Freigabe.** Schrittweise arbeiten, Zwischenstand zeigen.
+- **Commits in jedem Zwischenschritt** (User-Vorgabe 21.11.2026). Schrittweise
+  arbeiten, Zwischenstand zeigen.
 - Kommunikation auf Deutsch.
 - Keine Verbindung zur echten Naxclow-Cloud.
 - Hardware-Aktionen (Kamera neu starten, AP-Mode) nur nach Absprache.
