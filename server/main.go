@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -33,6 +34,15 @@ var (
 	streams *hub.Hub
 )
 
+// The web UI and its API must not be reachable from the LAN without a Home
+// Assistant login. Ingress requests come from the Supervisor, the integration
+// talks to us from localhost. Everything else gets a 403.
+var defaultUIAllow = []netip.Prefix{
+	netip.MustParsePrefix("127.0.0.0/8"),
+	netip.MustParsePrefix("::1/128"),
+	netip.MustParsePrefix("172.30.32.2/32"), // Home Assistant Supervisor ingress
+}
+
 func main() {
 	httpAddr := flag.String("http", ":80", "camera cloud API address, the cameras call port 80 (empty: off)")
 	uiAddr := flag.String("ui", ":8557", "web UI and integration API address")
@@ -41,6 +51,7 @@ func main() {
 	rtspAddr := flag.String("rtsp", ":8556", "RTSP address, empty to disable")
 	host := flag.String("host", "", "IP announced to the cameras (default: the IP they connected to)")
 	level := flag.String("log", "", "log level: trace, debug, info, warn, error (default: add-on option or info)")
+	uiAllowExtra := flag.String("ui-allow", "", "additional CIDRs allowed to use the web UI (loopback and Supervisor are always allowed)")
 	flag.Parse()
 
 	opts, isAddon := readAddonOptions()
@@ -67,6 +78,21 @@ func main() {
 	zerolog.TimeFieldFormat = time.RFC3339Nano // the console writer shows milliseconds
 	log = zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:05.000"}).
 		Level(lvl).With().Timestamp().Logger()
+
+	uiAllow := append([]netip.Prefix(nil), defaultUIAllow...)
+	for _, list := range []string{*uiAllowExtra, opts.UIAllowedCIDRs} {
+		for _, cidr := range strings.Split(list, ",") {
+			cidr = strings.TrimSpace(cidr)
+			if cidr == "" {
+				continue
+			}
+			prefix, err := netip.ParsePrefix(cidr)
+			if err != nil {
+				log.Fatal().Err(err).Str("cidr", cidr).Msg("[main] ui_allowed_cidrs")
+			}
+			uiAllow = append(uiAllow, prefix)
+		}
+	}
 
 	server = a9.NewServer()
 	server.Log = log
@@ -103,29 +129,63 @@ func main() {
 		go serveRTSP(ln)
 	}
 
-	mux := routes()
-
-	// Port 80 serves everything too, so old links keep working
+	// Port 80 is for the cameras only. Serving the UI there would expose camera
+	// streams to everyone in the network, without a Home Assistant login.
+	camMux := cameraRoutes()
 	if *httpAddr != "" {
 		ln, err := net.Listen("tcp", *httpAddr)
 		if err != nil {
 			log.Fatal().Err(err).Msg("[main] camera http (port 80 used by another add-on? see the camera_http_port option)")
 		}
-		go func() { log.Fatal().Err(http.Serve(ln, mux)).Msg("[main] camera http") }()
+		go func() { log.Fatal().Err(http.Serve(ln, camMux)).Msg("[main] camera http") }()
 	}
 
+	uiMux := uiAccessGuard(routes(), uiAllow)
 	ln, err := net.Listen("tcp", *uiAddr)
 	if err != nil {
 		log.Fatal().Err(err).Msg("[main] ui")
 	}
 	log.Info().Str("camera_http", *httpAddr).Str("ui", *uiAddr).Int("camera", *camPort).Str("rtsp", *rtspAddr).Msg("[main] listen")
 	go discover(ln.Addr().(*net.TCPAddr).Port)
-	log.Fatal().Err(http.Serve(ln, mux)).Msg("[main] ui")
+	log.Fatal().Err(http.Serve(ln, uiMux)).Msg("[main] ui")
+}
+
+// cameraRoutes is the fake cloud API the cameras call on port 80.
+func cameraRoutes() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST "+a9.APIPrefix, server.HandleAPI)
+	return mux
+}
+
+// uiAccessGuard accepts only the Supervisor's ingress proxy and local processes.
+func uiAccessGuard(next http.Handler, allow []netip.Prefix) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		host, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			host = r.RemoteAddr
+		}
+		ip, err := netip.ParseAddr(strings.Trim(host, "[]"))
+		if err != nil || !ipInPrefixes(ip, allow) {
+			log.Warn().Str("remote", r.RemoteAddr).Str("path", r.URL.Path).
+				Msg("[http] denied (use the Home Assistant add-on panel)")
+			http.Error(w, "forbidden: open this page from the Home Assistant add-on panel", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func ipInPrefixes(ip netip.Addr, prefixes []netip.Prefix) bool {
+	for _, p := range prefixes {
+		if p.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 func routes() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST "+a9.APIPrefix, server.HandleAPI)
 	mux.HandleFunc("GET /dev/list", apiList)
 	mux.HandleFunc("GET /dev/{uid}/live", apiMJPEG)
 	mux.HandleFunc("GET /dev/{uid}/snapshot", apiSnapshot)
@@ -135,6 +195,10 @@ func routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/devices/{uid}/command", apiCommandJSON)
 	mux.HandleFunc("POST /api/devices/{uid}/refresh", apiRefresh)
 	mux.HandleFunc("POST /api/devices/{uid}/settings", apiSettings)
+	mux.HandleFunc("POST /api/devices/{uid}/wifi", apiWiFi)
+	mux.HandleFunc("GET /setup.html", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFileFS(w, r, web, "web/setup.html")
+	})
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, web, "web/index.html")
 	})

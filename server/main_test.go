@@ -374,3 +374,80 @@ func TestHTTPSnapshotMaxAge(t *testing.T) {
 	get("?max_age=1") // too old
 	require.EqualValues(t, 2, cam.Opens.Load())
 }
+
+func TestHTTPWiFiCommand(t *testing.T) {
+	cam, uid, url := setup(t)
+	res, err := http.Post(url+"/api/devices/"+uid+"/wifi", "application/json",
+		strings.NewReader(`{"ssid":"WLAN-12358","password":"secret123"}`))
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
+
+	select {
+	case cmd := <-cam.Commands:
+		require.EqualValues(t, a9.FwdSetWiFi, cmd["code"])
+		require.Equal(t, a9.CLITarget, cmd["devTarget"])
+		require.Equal(t, "WLAN-12358", cmd["s"])
+		require.Equal(t, "secret123", cmd["p"])
+	case <-time.After(2 * time.Second):
+		t.Fatal("no wifi command")
+	}
+}
+
+func TestHTTPWiFiValidation(t *testing.T) {
+	cam, uid, url := setup(t)
+	for _, body := range []string{
+		`{"ssid":"","password":"secret123"}`,
+		`{"ssid":"WLAN-12358","password":"short"}`,
+		`{"ssid":"WLAN-12358"}`,
+	} {
+		res, err := http.Post(url+"/api/devices/"+uid+"/wifi", "application/json", strings.NewReader(body))
+		require.NoError(t, err)
+		_ = res.Body.Close()
+		require.Equal(t, http.StatusBadRequest, res.StatusCode, body)
+	}
+	select {
+	case cmd := <-cam.Commands:
+		t.Fatalf("unexpected command: %v", cmd)
+	case <-time.After(300 * time.Millisecond):
+	}
+}
+
+func TestUIGuard(t *testing.T) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	guard := uiAccessGuard(next, defaultUIAllow)
+	for _, tc := range []struct {
+		remote string
+		status int
+	}{
+		{"127.0.0.1:1234", http.StatusNoContent},
+		{"[::1]:1234", http.StatusNoContent},
+		{"172.30.32.2:1234", http.StatusNoContent},
+		{"192.168.1.50:1234", http.StatusForbidden},
+	} {
+		req := httptest.NewRequest("GET", "/dev/list", nil)
+		req.RemoteAddr = tc.remote
+		rec := httptest.NewRecorder()
+		guard.ServeHTTP(rec, req)
+		require.Equal(t, tc.status, rec.Code, tc.remote)
+	}
+}
+
+func TestCameraPortDoesNotServeUI(t *testing.T) {
+	req := httptest.NewRequest("GET", "/dev/list", nil)
+	rec := httptest.NewRecorder()
+	cameraRoutes().ServeHTTP(rec, req)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestHTTPSetupPage(t *testing.T) {
+	_, _, url := setup(t)
+	res, err := http.Get(url + "/setup.html")
+	require.NoError(t, err)
+	defer res.Body.Close()
+	b, _ := io.ReadAll(res.Body)
+	require.Equal(t, 200, res.StatusCode)
+	require.Contains(t, string(b), "Wi-Fi setup")
+}

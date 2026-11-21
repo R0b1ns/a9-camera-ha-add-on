@@ -52,8 +52,12 @@ const (
 	FwdOpenV          = 2 // video only
 	FwdOpenAV         = 3
 	FwdBaseInfo       = 4
+	FwdSetWiFi        = 204
 	FwdRetransmission = 298
 )
+
+// CLITarget is the client id the original app uses; forwarded commands need it too.
+const CLITarget = "00112233445566778899aabbccddeeff"
 
 const headerSize = 20
 

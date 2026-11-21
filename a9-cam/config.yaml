@@ -1,5 +1,5 @@
 name: A9 Camera
-version: 3.1.7
+version: 3.2.0
 slug: a9-cam
 description: Local server for A9 / V720 mini cameras, no cloud
 url: https://github.com/dbuezas/a9-camera-ha-add-on
@@ -21,17 +21,21 @@ ports:
   80/tcp: 80
   6123/tcp: 6123
   6123/udp: 6123
-  8556/tcp: 8556
-  8557/tcp: 8557
+  # Off by default: open the UI through Home Assistant's add-on panel (ingress).
+  # Set a host port here only if the camera streams are also needed outside HA.
+  8556/tcp:
+  8557/tcp:
 ports_description:
   80/tcp: Cloud API for the cameras (they always call port 80)
   6123/tcp: Camera control channel
   6123/udp: Camera video and audio
-  8556/tcp: RTSP (MJPEG video + PCMA audio)
-  8557/tcp: Web UI, MJPEG, snapshots and the integration API
+  8556/tcp: RTSP (MJPEG video + PCMA audio), off by default
+  8557/tcp: Web UI, MJPEG, snapshots and the integration API, off by default
 options:
   log_level: info
   camera_http_port: 80
+  ui_allowed_cidrs: ""
 schema:
   log_level: list(trace|debug|info|warn|error)
   camera_http_port: int(0,65535)
+  ui_allowed_cidrs: str

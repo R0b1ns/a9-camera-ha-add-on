@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -209,6 +210,7 @@ func discover(httpPort int) {
 type addonOptions struct {
 	LogLevel       string `json:"log_level"`
 	CameraHTTPPort *int   `json:"camera_http_port"`
+	UIAllowedCIDRs string `json:"ui_allowed_cidrs"`
 }
 
 // readAddonOptions reads the add-on options. ok is false outside of the add-on.
@@ -219,6 +221,40 @@ func readAddonOptions() (opts addonOptions, ok bool) {
 	}
 	_ = json.Unmarshal(b, &opts)
 	return opts, true
+}
+
+// apiWiFi asks a connected camera to join another WiFi network (code 204).
+// It needs an active TCP session, so this works while the camera is online.
+func apiWiFi(w http.ResponseWriter, r *http.Request) {
+	dev := server.Get(r.PathValue("uid"))
+	if dev == nil {
+		http.Error(w, a9.ErrNotConnected.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	var body struct {
+		SSID     string `json:"ssid"`
+		Password string `json:"password"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "body must be a JSON object with ssid and password", http.StatusBadRequest)
+		return
+	}
+	body.SSID = strings.TrimSpace(body.SSID)
+	if body.SSID == "" || len([]rune(body.Password)) < 8 || len([]rune(body.Password)) > 63 {
+		http.Error(w, "ssid must not be empty, password must be 8-63 characters", http.StatusBadRequest)
+		return
+	}
+	// Same order and keys as the original app. The camera applies the change
+	// and reconnects; the password is never written to the log.
+	dev.SendCommand(a9.Obj{
+		{"code", a9.FwdSetWiFi},
+		{"devTarget", a9.CLITarget},
+		{"s", body.SSID},
+		{"p", body.Password},
+	})
+	log.Info().Str("uid", dev.UID).Str("ssid", body.SSID).Msg("[api] set wifi")
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // apiSettings changes server side settings of a camera, ex: {"audio": false}

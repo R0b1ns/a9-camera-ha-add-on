@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.2.0
+
+- **Security:** the web UI, snapshots, MJPEG streams and command API are now only reachable through
+  Home Assistant Ingress (Supervisor) or from localhost. Port 80 serves the camera cloud API only.
+  Ports 8556/8557 are off by default; old unauthenticated links such as `http://HA_IP/dev/.../snapshot`
+  no longer work. Extra source networks can be allowed with the new `ui_allowed_cidrs` option.
+- New: Wi-Fi setup page in the add-on UI. It sends code `204` to a connected camera, so the network
+  can be changed without reconnecting a phone to the camera's access point. Includes a short guide.
+
 ## 3.1.7
 
 - Fix: the Live button in the add-on page showed nothing (#17). Home Assistant's add-on panel

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A9 Camera – Wi-Fi setup</title>
+  <style>
+    :root {
+      --bg: #f6f7f9; --card: #fff; --text: #1c1e21; --muted: #65676b;
+      --line: #dfe1e5; --accent: #0b6bcb; --ok: #1a7f37; --warn: #9a6700;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #111315; --card: #1b1e21; --text: #e4e6eb; --muted: #a0a4ab;
+        --line: #2f3338; --accent: #5aa7ff; --ok: #4ac26b; --warn: #e3b341;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 16px; background: var(--bg); color: var(--text);
+      font: 15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    h2 { font-size: 15px; margin: 20px 0 6px; }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+      padding: 14px; margin-top: 12px; }
+    label { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+      color: var(--muted); margin: 12px 0 4px; }
+    input, select { font: inherit; width: 100%; padding: 8px 10px; border: 1px solid var(--line);
+      border-radius: 6px; background: var(--card); color: var(--text); }
+    button { font: inherit; margin-top: 14px; padding: 8px 14px; border-radius: 6px;
+      border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    ol { margin: 6px 0 0; padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    .note { border-left: 3px solid var(--warn); padding-left: 10px; color: var(--muted); }
+    #result { margin-top: 12px; min-height: 20px; }
+    #result.ok { color: var(--ok); }
+    #result.err { color: var(--warn); }
+  </style>
+</head>
+<body>
+  <h1>A9 Camera – Wi-Fi setup</h1>
+  <div class="muted"><a href="index.html">← Back to cameras</a></div>
+
+  <div class="card">
+    <label for="cam">Camera</label>
+    <select id="cam"></select>
+    <label for="ssid">New Wi-Fi name (SSID)</label>
+    <input id="ssid" autocomplete="off" spellcheck="false" placeholder="WLAN-12358">
+    <label for="pwd">Wi-Fi password</label>
+    <input id="pwd" type="password" autocomplete="new-password" spellcheck="false">
+    <button id="send">Change Wi-Fi</button>
+    <div id="result" role="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>How it works</h2>
+    <ol>
+      <li>Open this page from the <b>A9 Camera add-on panel in Home Assistant</b>. The page is only
+          reachable when you are logged in to Home Assistant.</li>
+      <li>Make sure the camera appears in the list above. The change is sent over its existing
+          connection, so the camera must be online. If it is not online, power-cycle it and wait a
+          few minutes until it reconnects.</li>
+      <li>Enter the name and password of the new network and press <b>Change Wi-Fi</b>. Use a
+          <b>2.4&nbsp;GHz</b> network – these cameras do not support 5&nbsp;GHz.</li>
+      <li>The camera applies the change immediately and reboots. It disappears from the list for a
+          minute or two and then comes back on the new network.</li>
+      <li>Keep the DNS rewrites <code>*.naxclow.com</code> and <code>*.naxclow.com.cn</code>
+          pointing at the Home Assistant host in the <b>new</b> network's DHCP DNS as well.
+          Otherwise the camera will call the original cloud again.</li>
+    </ol>
+    <p class="note">If the camera has never joined a Wi-Fi network (it is in its own
+      <code>NAXCLOW</code> access point mode), this page cannot reach it yet. Connect it to any
+      network once with the V720 app or the AP-mode setup script, then use this page to move it.</p>
+  </div>
+
+  <script>
+    const select = document.getElementById("cam");
+    const result = document.getElementById("result");
+    const send = document.getElementById("send");
+
+    function message(text, kind = "") {
+      result.textContent = text;
+      result.className = kind;
+    }
+
+    async function load() {
+      try {
+        const list = await (await fetch("dev/list")).json();
+        const previous = select.value;
+        select.innerHTML = "";
+        for (const cam of list) {
+          const opt = document.createElement("option");
+          opt.value = cam.uid;
+          opt.textContent = `${cam.uid} · ${cam.host}`;
+          select.appendChild(opt);
+        }
+        if (previous) select.value = previous;
+        send.disabled = list.length === 0;
+        if (!list.length) message("No camera connected. See step 2 below.", "err");
+      } catch (e) {
+        send.disabled = true;
+        message("Cannot reach the add-on. Open this page from the Home Assistant panel.", "err");
+      }
+    }
+
+    send.onclick = async () => {
+      const uid = select.value;
+      const ssid = document.getElementById("ssid").value;
+      const pwd = document.getElementById("pwd").value;
+      if (!uid || !ssid.trim() || pwd.length < 8) {
+        message("Choose a camera, enter an SSID and a password of at least 8 characters.", "err");
+        return;
+      }
+      send.disabled = true;
+      message("Sending…");
+      try {
+        const res = await fetch(`api/devices/${encodeURIComponent(uid)}/wifi`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ssid, password: pwd })
+        });
+        if (!res.ok) throw new Error(await res.text());
+        message("Wi-Fi change sent. The camera will reboot and reconnect. This page will update itself.", "ok");
+      } catch (e) {
+        message(`Failed: ${e.message}`, "err");
+      } finally {
+        document.getElementById("pwd").value = "";
+        send.disabled = false;
+      }
+    };
+
+    load();
+    setInterval(() => { if (!document.hidden) load(); }, 5000);
+  </script>
+</body>
+</html>

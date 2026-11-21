@@ -13,10 +13,23 @@ The cameras connect to it instead of China, and it serves their video and audio 
 3. Install and start this add-on.
 4. Restart the cameras, or wait. After a server restart a camera can take up to about 10 minutes to
    come back.
-5. Open the add-on web UI. Each connected camera shows up with its ID and URLs.
+5. Open the add-on web UI from the add-on panel in Home Assistant (Ingress). Each connected camera
+   shows up with its ID and URLs. The UI and the camera streams are **only** available while logged
+   in to Home Assistant; there is no open port for them by default.
 6. Optional but recommended: install the **A9 Camera** integration from HACS (same repository) and
    restart Home Assistant. It finds this add-on by itself and adds each camera as a device with a live
    camera, switches and sensors.
+
+## Access control
+
+The web UI, snapshots, MJPEG streams and the command API are served on the ingress port only. The add-on
+accepts requests from the Supervisor (`172.30.32.2`) and from localhost (the Home Assistant integration).
+Direct requests from other addresses get `403 Forbidden`. Port 80 serves only the cameras' cloud API,
+so old links like `http://HA_IP/dev/.../snapshot` no longer expose video to the whole network.
+
+If your setup sends ingress traffic from a different address (for example a reverse proxy), add that
+network to the `ui_allowed_cidrs` option, e.g. `192.168.1.0/24`. Denied requests are logged with their
+source address. The option extends the built-in allows; it never removes them.
 
 ## Streams
 
@@ -30,6 +43,9 @@ Replace `CAMERA_ID` with the ID shown in the web UI (for example `0800c0035826`)
 | Camera list (JSON) | `http://HA_IP:8557/dev/list` |
 
 The camera only sends video while someone watches. All viewers of one camera share one stream.
+These URLs require a Home Assistant session when they are opened through Ingress. RTSP is a separate
+protocol without a login, so its port is off by default; enable it in the add-on's **Network** section
+only if you trust the network and need it (e.g. for go2rtc).
 
 ### go2rtc / WebRTC card
 
@@ -47,7 +63,8 @@ streams:
 
 ## Commands
 
-`http://HA_IP/dev/CAMERA_ID/cmd?code=...` sends a command to the camera. The web UI has buttons for these:
+`http://HA_IP:8557/dev/CAMERA_ID/cmd?code=...` sends a command to the camera (only reachable through
+Ingress or localhost). The web UI has buttons for these:
 
 | Command | URL query |
 | --- | --- |
@@ -55,6 +72,22 @@ streams:
 | Flip image | `code=216&mirrorFlip=4` / `code=216&mirrorFlip=0` |
 | Status LED on / off | `code=210&instLed=1` / `code=210&instLed=0` |
 | Reboot | `code=299&reboot=1` |
+
+## Changing the camera's Wi-Fi
+
+Open **Wi-Fi setup** in the add-on web page (or go to `setup.html` in the same Ingress URL). Select a
+connected camera, enter the new SSID and password and submit. The add-on sends code `204` over the
+existing camera connection; the camera applies it and reconnects on the new network. It needs about
+one or two minutes and disappears from the camera list in the meantime.
+
+Notes:
+
+- Only **2.4 GHz** networks are supported by these cameras.
+- The camera must already be online. A camera in its factory `NAXCLOW` AP mode cannot be reached this
+  way; connect it once with the V720 app or an AP-mode setup script first.
+- Make sure the DNS rewrites for `*.naxclow.com` and `*.naxclow.com.cn` also apply in the new network's
+  DHCP DNS, otherwise the camera calls the original cloud again.
+- The password is sent to the camera and is never written to the add-on log.
 
 ## Upgrading from version 2.x
 
@@ -70,6 +103,7 @@ Version 3 is a rewrite in Go. It does not use Python or FFmpeg anymore.
 | --- | --- | --- |
 | `log_level` | `info` | `debug` shows every camera message and stream statistics |
 | `camera_http_port` | `80` | Port for the cameras' cloud calls. They always call port 80, so only change it if another add-on uses port 80 and forwards `/app/api/` to this add-on (port 8557). `0` turns it off. |
+| `ui_allowed_cidrs` | empty | Comma-separated extra networks allowed to use the web UI and API, e.g. `192.168.1.0/24`. Loopback and the Supervisor are always allowed. |
 
 ## Audio
 
@@ -82,10 +116,10 @@ The add-on uses the host network:
 
 | Port | What |
 | --- | --- |
-| 80 | Cloud calls of the cameras (see `camera_http_port`) |
+| 80 | Cloud calls of the cameras only (see `camera_http_port`) |
 | 6123 TCP + UDP | Camera connection |
-| 8556 | RTSP |
-| 8557 | Web UI, MJPEG, snapshots, integration API |
+| 8556 | RTSP, off by default |
+| 8557 | Web UI, MJPEG, snapshots, integration API, off by default (use Ingress) |
 
 ## Reconnecting
 

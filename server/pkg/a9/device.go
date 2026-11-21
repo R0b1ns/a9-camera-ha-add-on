@@ -14,7 +14,7 @@ import (
 
 // Values the original app uses to identify the "client" (phone)
 const (
-	cliTarget = "00112233445566778899aabbccddeeff"
+	cliTarget = CLITarget
 	cliToken  = "deadc0de"
 )
 
