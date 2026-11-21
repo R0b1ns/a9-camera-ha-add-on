@@ -170,6 +170,7 @@ func routes() *http.ServeMux {
 	mux.HandleFunc("GET /dev/{uid}/cmd", apiCommand)
 	mux.HandleFunc("GET /api/devices", apiDevices)
 	mux.HandleFunc("GET /api/status", apiStatus)
+	mux.HandleFunc("GET /api/wifi/accesspoints", apiAccessPoints)
 	mux.HandleFunc("GET /api/events", apiEvents)
 	mux.HandleFunc("POST /api/devices/{uid}/command", apiCommandJSON)
 	mux.HandleFunc("POST /api/devices/{uid}/refresh", apiRefresh)

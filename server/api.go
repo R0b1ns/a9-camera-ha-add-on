@@ -69,6 +69,27 @@ func apiCommandJSON(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// apiAccessPoints scans the HA host's Wi-Fi for access points (camera APs).
+func apiAccessPoints(w http.ResponseWriter, r *http.Request) {
+	iface := r.URL.Query().Get("iface")
+	if iface == "" {
+		if found, ok := wifiInterface(); ok {
+			iface = found
+		} else {
+			http.Error(w, "no Wi-Fi interface found", http.StatusServiceUnavailable)
+			return
+		}
+	}
+	aps, err := supervisorAccessPoints(iface)
+	if err != nil {
+		log.Warn().Err(err).Str("iface", iface).Msg("[api] wifi scan")
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(aps)
+}
+
 func apiRefresh(w http.ResponseWriter, r *http.Request) {
 	dev := server.Get(r.PathValue("uid"))
 	if dev == nil {

@@ -17,6 +17,9 @@ ingress_port: 8557
 # Direct links on port 8557 ask for a Home Assistant user and password and
 # check them against the Supervisor's auth API.
 auth_api: true
+# Needed for /network/interface/... (Wi-Fi scan + connect) on the HA host.
+hassio_api: true
+hassio_role: manager
 panel_icon: mdi:cctv
 discovery:
   - a9_cam
