@@ -176,7 +176,10 @@ func htmlEscape(s string) string {
 }
 
 func renderLogin(next, errMsg string) string {
-	return fmt.Sprintf(loginPage, htmlEscape(next), htmlEscape(errMsg))
+	// The CSS contains "100%", so fmt.Sprintf would consume the arguments for
+	// those percent signs and leave the real placeholders empty.
+	return strings.NewReplacer("{{NEXT}}", htmlEscape(next), "{{ERR}}", htmlEscape(errMsg)).
+		Replace(loginPage)
 }
 
 var sessionSecret []byte
@@ -215,14 +218,14 @@ const loginPage = `<!doctype html>
     <h1>A9 Camera</h1>
     <p>Log in with your Home Assistant user to open the camera page.</p>
     <form method="post" action="login">
-      <input type="hidden" name="next" value="%s">
+      <input type="hidden" name="next" value="{{NEXT}}">
       <label for="username">Home Assistant user</label>
       <input id="username" name="username" autocomplete="username" required>
       <label for="password">Password</label>
       <input id="password" name="password" type="password" autocomplete="current-password" required>
       <button type="submit">Log in</button>
     </form>
-    <div class="err">%s</div>
+    <div class="err">{{ERR}}</div>
   </div>
 </body>
 </html>
