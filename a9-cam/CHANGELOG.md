@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.2.2
+
+- Fix: „Back to cameras“ on the Wi-Fi setup page no longer returns 404 (`GET /index.html`).
+- Fix: direct MJPEG and snapshot links are shown as clickable URLs again; the first open asks for the
+  Home Assistant login.
+- Fix: Ingress URLs work with and without a trailing slash; status badges also appear when
+  `/api/status` is unavailable.
+- Docs: the Generic Camera still-image URL now uses port 8557.
+
 ## 3.2.1
 
 - New: the add-on UI shows badges for connected cameras, the cloud DNS rewrite and the HA host's

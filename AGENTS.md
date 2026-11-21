@@ -16,6 +16,9 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - **Nichts installieren** (kein brew/pip/apt/go-Download).
 - **Commits in jedem Zwischenschritt** (User-Vorgabe 21.11.2026). Schrittweise
   arbeiten, Zwischenstand zeigen.
+- **Vor jedem Push Version bumpen** in `a9-cam/config.yaml`,
+  `custom_components/a9_cam/manifest.json` und `a9-cam/CHANGELOG.md`, sonst
+  zeigt Home Assistant kein Update an.
 - Kommunikation auf Deutsch.
 - Keine Verbindung zur echten Naxclow-Cloud.
 - Hardware-Aktionen (Kamera neu starten, AP-Mode) nur nach Absprache.
@@ -23,10 +26,9 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 ## Aktueller Stand
 
 - Repo: `https://github.com/R0b1ns/a9-camera-ha-add-on`
-- `main`: Version 3.2.1 mit Auth, Wi-Fi-Setup und lokalem Go-Build via
-  `a9-cam/Dockerfile` (HA liest den Default-Branch `main`; vorher zog es das
-  dbuezas-v3.1.7-Image). `fork/main`: `c2bb75b` (gepusht); lokal folgen die
-  Link-/UI-Fixes (siehe unten), noch nicht gepusht.
+- `main`: Version 3.2.2 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes und lokalem
+  Go-Build via `a9-cam/Dockerfile` (HA liest den Default-Branch `main`;
+  vorher zog es das dbuezas-v3.1.7-Image). `fork/main`: 3.2.2, gepusht.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -57,7 +59,7 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   Dockerfile-Hinweis oben). Danach Browser-Konsole/Network und
   `/api/status` prüfen. Kein Neustart oder Hardware-Aktion ohne Absprache.
 
-## Vergleich 3.1.7 → 3.2.1: Kamer-Links / UI
+## Vergleich 3.1.7 → 3.2.x: Kamer-Links / UI
 
 - 3.1.7 (`3ed6a3c`) lieferte die komplette UI auch auf Port 80 aus
   („old links keep working“) – daher waren `/dev/.../live` und `/snapshot`
