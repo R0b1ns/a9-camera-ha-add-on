@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.2.6
+
+- Fix: the login page no longer shows `%!s(MISSING)`. The CSS `width:100%` was parsed by
+  `fmt.Sprintf` as a placeholder; fixed placeholders are now replaced with `strings.NewReplacer`
+  (regression test in `server/auth_test.go`).
+- Change: the Wi-Fi form is now directly on each connected camera's card. The setup page is only
+  for new cameras in AP mode; the generic camera list is gone.
+- Change: removed the "Open MJPEG" / "Open snapshot" buttons and the extra label text from the
+  camera cards; the direct URLs remain as plain text.
+
 ## 3.2.5
 
 - Change: the add-on image build now uses BuildKit cache mounts for Go modules and compiled

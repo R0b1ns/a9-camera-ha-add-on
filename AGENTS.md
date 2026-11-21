@@ -26,9 +26,10 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 ## Aktueller Stand
 
 - Repo: `https://github.com/R0b1ns/a9-camera-ha-add-on`
-- `main`: Version 3.2.5 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes und lokalem
-  Go-Build via `a9-cam/Dockerfile` (HA liest den Default-Branch `main`;
-  vorher zog es das dbuezas-v3.1.7-Image). `fork/main`: 3.2.5, gepusht.
+- `main`: Version 3.2.6 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix und
+  lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den Default-Branch `main`;
+  vorher zog es das dbuezas-v3.1.7-Image). `fork/main`: 3.2.5, gepusht;
+  3.2.6 steht zum Push an.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -90,16 +91,25 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
     `http://<host>:8557/...` (erster Aufruf → HA-Login, `23fe35d`).
   - `DOCS.md` enthielt noch `http://127.0.0.1/dev/.../snapshot` ohne Port;
     korrigiert auf `:8557` (`9c0b5e4`).
+- **Behoben in `1ea93d4` / `69a3f68` / `a45f3e1` (3.2.6):** Login-Seite ohne
+  `%!s(MISSING)` (CSS `width:100%` wurde von `fmt.Sprintf` als Platzhalter
+  gelesen; jetzt `strings.NewReplacer` mit `{{NEXT}}`/`{{ERR}}`, Regressionstest
+  in `server/auth_test.go`). Keine „Open MJPEG“/“Open snapshot“-Buttons und
+  kein „(direct link, HA login)“ mehr; die direkten URLs bleiben als Text.
+  „Change Wi-Fi“ direkt auf jeder Kamera-Karte; `setup.html` nur noch für neue
+  Geräte im AP-Mode („Add new camera (AP mode)“).
 - Weiterhin bewusst: `8556/tcp` ist jetzt standardmäßig leer (RTSP aus),
   damit auch RTSP nicht ungeschützt im Netzwerk liegt. Wer go2rtc nutzt,
   muss den Port in den Add-on-Netzwerkoptionen aktivieren.
 
 ## Wi-Fi-Setup – drei Wege (Stand 21.11.2026)
 
-1. **Kamera online:** `POST /api/devices/<uid>/wifi` → `code 204` über die
-   bestehende TCP-Session.
-2. **Kamera im AP-Mode, HA per LAN + freies WLAN (Normalfall bei HA OS auf dem
-   Raspberry Pi):** `GET /api/wifi/accesspoints` nutzt Supervisor
+1. **Kamera bereits verbunden:** Formular **direkt auf der Kamera-Karte** in
+   `index.html` → `POST /api/devices/<uid>/wifi` → `code 204` über die
+   bestehende TCP-Session. Kein generelles Setup-Formular mehr.
+2. **Neues Gerät im AP-Mode, HA per LAN + freies WLAN (Normalfall bei HA OS auf
+   dem Raspberry Pi):** nur die Seite `setup.html` („Add new camera (AP
+   mode)“); `GET /api/wifi/accesspoints` nutzt Supervisor
    `/network/interface/<iface>/accesspoints`, `POST /api/wifi/configure-ap`
    prüft `connected == false`, verbindet HA kurz mit dem Kamera-AP, sendet
    `LIVE_MOTION` → `code 501` → `code 502{content:{code:204}}` an
