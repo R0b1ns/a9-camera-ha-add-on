@@ -7,23 +7,35 @@
   <style>
     :root {
       --bg: #f6f7f9; --card: #fff; --text: #1c1e21; --muted: #65676b;
-      --line: #dfe1e5; --accent: #0b6bcb; --ok: #1a7f37; --code: #eef0f3;
+      --line: #dfe1e5; --accent: #0b6bcb; --ok: #1a7f37; --err: #b3261e; --warn: #9a6700;
+      --code: #eef0f3;
     }
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {
         --bg: #111315; --card: #1b1e21; --text: #e4e6eb; --muted: #a0a4ab;
-        --line: #2f3338; --accent: #5aa7ff; --ok: #4ac26b; --code: #24282d;
+        --line: #2f3338; --accent: #5aa7ff; --ok: #4ac26b; --err: #ff8a80; --warn: #e3b341;
+        --code: #24282d;
       }
     }
     :root[data-theme="dark"] {
       --bg: #111315; --card: #1b1e21; --text: #e4e6eb; --muted: #a0a4ab;
-      --line: #2f3338; --accent: #5aa7ff; --ok: #4ac26b; --code: #24282d;
+      --line: #2f3338; --accent: #5aa7ff; --ok: #4ac26b; --err: #ff8a80; --warn: #e3b341; --code: #24282d;
     }
     * { box-sizing: border-box; }
     body { margin: 0; padding: 16px; background: var(--bg); color: var(--text);
       font: 15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     h1 { font-size: 20px; margin: 0 0 4px; }
     .muted { color: var(--muted); }
+    .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+    .badge { font-size: 12px; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line);
+      background: var(--card); color: var(--muted); }
+    .badge.ok { border-color: var(--ok); color: var(--ok); }
+    .badge.bad { border-color: var(--err); color: var(--err); }
+    .badge.warn { border-color: var(--warn); color: var(--warn); }
+    .alert { margin: 10px 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--err);
+      background: color-mix(in srgb, var(--err) 10%, var(--card)); color: var(--text); }
+    .alert b { color: var(--err); }
+    .alert code { display: inline; padding: 1px 4px; }
     .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); margin-top: 16px; }
     .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
     .card img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #000; }
@@ -46,6 +58,12 @@
 <body>
   <h1>A9 Cameras</h1>
   <div class="muted"><a href="setup.html">Wi-Fi setup</a></div>
+  <div class="badges">
+    <span class="badge" id="badge-cams">Cameras: …</span>
+    <span class="badge" id="badge-dns">Cloud DNS: …</span>
+    <span class="badge" id="badge-wifi">Home Assistant WLAN: …</span>
+  </div>
+  <div id="alert"></div>
   <div class="muted" id="status">Loading…</div>
   <div class="grid" id="cams"></div>
 
@@ -139,13 +157,35 @@
       return () => ctrl.abort();
     }
 
+    function badge(id, text, cls) {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      el.className = "badge" + (cls ? " " + cls : "");
+    }
+
     async function update() {
-      let list;
+      let list, st;
       try {
-        list = await (await fetch("dev/list")).json();
+        [list, st] = await Promise.all([
+          fetch("dev/list").then(r => r.json()),
+          fetch("api/status").then(r => r.json()).catch(() => null),
+        ]);
       } catch (e) {
         document.getElementById("status").textContent = "Server unreachable";
         return;
+      }
+      badge("badge-cams", `Cameras: ${list.length}`, list.length ? "ok" : "warn");
+      if (st) {
+        badge("badge-dns", st.dns_ok ? "Cloud DNS: OK" : "Cloud DNS: WRONG", st.dns_ok ? "ok" : "bad");
+        badge("badge-wifi", st.wifi_available ? `HA WLAN: ${st.wifi_iface}` : "HA WLAN: none",
+          st.wifi_available ? "ok" : "warn");
+        const alert = document.getElementById("alert");
+        alert.innerHTML = st.dns_ok ? "" :
+          `<div class="alert"><b>DNS redirect missing.</b> <code>${st.dns_name}</code> resolves to ` +
+          `<code>${st.dns_ip || "nothing"}</code>, but this host is ` +
+          `<code>${(st.local_ips || []).join(", ") || "unknown"}</code>. ` +
+          `Set the DNS rewrites for <code>*.naxclow.com</code> and <code>*.naxclow.com.cn</code> ` +
+          `in your router/AdGuard, then restart the cameras.</div>`;
       }
       document.getElementById("status").textContent = list.length
         ? `${list.length} camera(s) connected`
