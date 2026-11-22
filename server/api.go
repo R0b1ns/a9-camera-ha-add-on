@@ -80,6 +80,10 @@ func apiAccessPoints(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if !validIfaceName(iface) {
+		http.Error(w, "invalid Wi-Fi interface", http.StatusBadRequest)
+		return
+	}
 	aps, err := supervisorAccessPoints(iface)
 	if err != nil {
 		log.Warn().Err(err).Str("iface", iface).Msg("[api] wifi scan")
@@ -103,6 +107,9 @@ type wifiAPRequest struct {
 var (
 	apSetWiFiFunc       = apSetWiFi
 	waitForCameraAPFunc = waitForCameraAP
+	// Never run two AP setups at once: they would overwrite each other's
+	// wireless configuration on the same interface.
+	apConfigureMu sync.Mutex
 )
 
 // apiWiFiAP configures a camera that is in its own AP mode: the HA host joins
@@ -131,10 +138,26 @@ func apiWiFiAP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "ap_ssid, ssid and password (8-63 chars) required", http.StatusBadRequest)
 		return
 	}
+	if !validIfaceName(req.Iface) {
+		http.Error(w, "invalid Wi-Fi interface", http.StatusBadRequest)
+		return
+	}
+
+	apConfigureMu.Lock()
+	defer apConfigureMu.Unlock()
 
 	// This flow assumes the HA host is on LAN and its Wi-Fi is unused. If a
 	// home Wi-Fi is active, do not touch it: we could not restore its password.
-	if active, err := supervisorWiFiActive(req.Iface); err == nil && active {
+	// If the state cannot be determined, abort too: failing open here would
+	// overwrite an existing home Wi-Fi configuration.
+	active, err := supervisorWiFiActive(req.Iface)
+	if err != nil {
+		log.Warn().Err(err).Str("iface", req.Iface).Msg("[api] wifi ap: state check failed")
+		http.Error(w, "cannot verify Wi-Fi state; refusing to change the home network",
+			http.StatusBadGateway)
+		return
+	}
+	if active {
 		http.Error(w, "Wi-Fi is in use by Home Assistant; this setup requires LAN and a free Wi-Fi interface",
 			http.StatusConflict)
 		return
@@ -149,7 +172,8 @@ func apiWiFiAP(w http.ResponseWriter, r *http.Request) {
 	if err := supervisorConnectWiFi(req.Iface, wifiConfig{
 		Mode: "infrastructure", Auth: auth, SSID: req.APSSID, PSK: psk,
 	}); err != nil {
-		http.Error(w, "cannot join camera AP: "+err.Error(), http.StatusBadGateway)
+		log.Warn().Err(err).Str("iface", req.Iface).Msg("[api] wifi ap: cannot join camera")
+		http.Error(w, "cannot join camera AP", http.StatusBadGateway)
 		return
 	}
 	if !waitForCameraAPFunc(15 * time.Second) {
@@ -157,7 +181,7 @@ func apiWiFiAP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "camera AP did not assign an address", http.StatusGatewayTimeout)
 		return
 	}
-	err := apSetWiFiFunc(req.SSID, req.Password)
+	err = apSetWiFiFunc(req.SSID, req.Password)
 	// Always disconnect from the isolated camera AP, even on failure.
 	if disconnectErr := disconnectWiFi(req.Iface); disconnectErr != nil {
 		log.Error().Err(disconnectErr).Msg("[api] wifi ap: cannot disconnect Wi-Fi")
@@ -167,7 +191,7 @@ func apiWiFiAP(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		log.Error().Err(err).Msg("[api] wifi ap: failed")
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		http.Error(w, "camera did not accept the Wi-Fi settings", http.StatusBadGateway)
 		return
 	}
 	log.Info().Str("ssid", req.SSID).Msg("[api] wifi ap: camera configured, Wi-Fi disconnected")

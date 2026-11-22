@@ -626,6 +626,57 @@ func TestAccessPointsEndpoint(t *testing.T) {
 	require.Equal(t, "NAXCLOW-123", aps[0].SSID)
 }
 
+func TestWiFiAPIRejectsInvalidInterface(t *testing.T) {
+	t.Setenv("SUPERVISOR_TOKEN", "test-token")
+	_, _, url := setup(t)
+	old := supervisorURL
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	supervisorURL = srv.URL
+	defer func() { supervisorURL = old; srv.Close() }()
+
+	res, err := http.Get(url + "/api/wifi/accesspoints?iface=../../core")
+	require.NoError(t, err)
+	_ = res.Body.Close()
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+	body := `{"iface":"../../core","ap_ssid":"NAXCLOW-1","ssid":"CameraNet","password":"newpassword"}`
+	res2, err := http.Post(url+"/api/wifi/configure-ap", "application/json", strings.NewReader(body))
+	require.NoError(t, err)
+	_ = res2.Body.Close()
+	require.Equal(t, http.StatusBadRequest, res2.StatusCode)
+	require.Zero(t, calls, "an invalid interface must never reach the Supervisor")
+}
+
+func TestWiFiAPFailsClosedWhenStateUnknown(t *testing.T) {
+	t.Setenv("SUPERVISOR_TOKEN", "test-token")
+	_, _, url := setup(t)
+	old := supervisorURL
+	var posts int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			posts++
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = io.WriteString(w, `{"result":"error","message":"psk=hunter2 secret-config"}`)
+	}))
+	supervisorURL = srv.URL
+	defer func() { supervisorURL = old; srv.Close() }()
+
+	body := `{"iface":"wlan0","ap_ssid":"NAXCLOW-1","ssid":"CameraNet","password":"newpassword"}`
+	res, err := http.Post(url+"/api/wifi/configure-ap", "application/json", strings.NewReader(body))
+	require.NoError(t, err)
+	b, _ := io.ReadAll(res.Body)
+	_ = res.Body.Close()
+	require.Equal(t, http.StatusBadGateway, res.StatusCode)
+	require.Zero(t, posts, "an unknown Wi-Fi state must not change the interface")
+	require.NotContains(t, string(b), "secret-config")
+	require.NotContains(t, string(b), "hunter2")
+}
+
 func TestHelperDownloads(t *testing.T) {
 	_, _, url := setup(t)
 	for _, name := range []string{"a9-wifi-setup.py", "a9-wifi-setup.bat", "a9-wifi-setup.command"} {

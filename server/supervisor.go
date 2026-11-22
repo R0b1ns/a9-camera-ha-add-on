@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -19,7 +22,31 @@ type supervisorEnvelope struct {
 	Message string          `json:"message"`
 }
 
+// Interface names come from API requests. Never let them become path segments
+// of their own: "../../core" must not reach the Supervisor with our token.
+var ifaceNameRE = regexp.MustCompile(`^[A-Za-z0-9_-]{1,32}$`)
+
+func validIfaceName(iface string) bool {
+	return ifaceNameRE.MatchString(iface)
+}
+
+// networkIfacePath builds the only Supervisor paths this add-on may call.
+func networkIfacePath(iface, suffix string) (string, error) {
+	if !validIfaceName(iface) {
+		return "", fmt.Errorf("invalid network interface name")
+	}
+	switch suffix {
+	case "accesspoints", "info", "update":
+	default:
+		return "", fmt.Errorf("invalid supervisor endpoint")
+	}
+	return "/network/interface/" + url.PathEscape(iface) + "/" + suffix, nil
+}
+
 func supervisorRequest(method, path string, body any) (json.RawMessage, error) {
+	if !strings.HasPrefix(path, "/network/interface/") {
+		return nil, fmt.Errorf("supervisor path not allowed: %s", path)
+	}
 	token := os.Getenv("SUPERVISOR_TOKEN")
 	if token == "" {
 		return nil, fmt.Errorf("no SUPERVISOR_TOKEN (add-on only)")
@@ -40,7 +67,14 @@ func supervisorRequest(method, path string, body any) (json.RawMessage, error) {
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	client := &http.Client{Timeout: 20 * time.Second}
+	client := &http.Client{
+		Timeout: 20 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			// Go keeps custom headers on redirects to a different host. Stop
+			// here so X-Supervisor-Token can never follow a redirect.
+			return http.ErrUseLastResponse
+		},
+	}
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -51,14 +85,16 @@ func supervisorRequest(method, path string, body any) (json.RawMessage, error) {
 		return nil, err
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, fmt.Errorf("supervisor %s %s: HTTP %d: %s", method, path, res.StatusCode, string(b))
+		// The body may contain configuration details (up to 1 MiB). Never send
+		// it to an API client or log it verbatim.
+		return nil, fmt.Errorf("supervisor %s %s: HTTP %d", method, path, res.StatusCode)
 	}
 	var env supervisorEnvelope
 	if err := json.Unmarshal(b, &env); err != nil {
 		return nil, err
 	}
 	if env.Result != "ok" {
-		return nil, fmt.Errorf("supervisor %s: %s", path, env.Message)
+		return nil, fmt.Errorf("supervisor %s: request rejected (%s)", path, env.Result)
 	}
 	return env.Data, nil
 }
@@ -71,8 +107,11 @@ type accessPoint struct {
 
 // supervisorAccessPoints scans for Wi-Fi networks on the given interface.
 func supervisorAccessPoints(iface string) ([]accessPoint, error) {
-	data, err := supervisorRequest(http.MethodGet,
-		"/network/interface/"+iface+"/accesspoints", nil)
+	path, err := networkIfacePath(iface, "accesspoints")
+	if err != nil {
+		return nil, err
+	}
+	data, err := supervisorRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +134,11 @@ type wifiConfig struct {
 // supervisorConnectWiFi joins an SSID. The wifi block replaces the whole
 // wireless config of that interface, so callers must restore the old SSID.
 func supervisorConnectWiFi(iface string, wifi wifiConfig) error {
-	_, err := supervisorRequest(http.MethodPost,
-		"/network/interface/"+iface+"/update", map[string]any{"wifi": wifi})
+	path, err := networkIfacePath(iface, "update")
+	if err != nil {
+		return err
+	}
+	_, err = supervisorRequest(http.MethodPost, path, map[string]any{"wifi": wifi})
 	return err
 }
 
@@ -104,8 +146,11 @@ func supervisorConnectWiFi(iface string, wifi wifiConfig) error {
 // AP flow is only safe when LAN is connected and Wi-Fi is free; a saved home
 // network cannot be restored because Supervisor never returns its password.
 func supervisorWiFiActive(iface string) (bool, error) {
-	data, err := supervisorRequest(http.MethodGet,
-		"/network/interface/"+iface+"/info", nil)
+	path, err := networkIfacePath(iface, "info")
+	if err != nil {
+		return false, err
+	}
+	data, err := supervisorRequest(http.MethodGet, path, nil)
 	if err != nil {
 		return false, err
 	}
@@ -120,7 +165,10 @@ func supervisorWiFiActive(iface string) (bool, error) {
 
 // disconnectWiFi drops the (isolated) camera AP connection after the setup.
 func disconnectWiFi(iface string) error {
-	_, err := supervisorRequest(http.MethodPost,
-		"/network/interface/"+iface+"/update", map[string]any{"enabled": false})
+	path, err := networkIfacePath(iface, "update")
+	if err != nil {
+		return err
+	}
+	_, err = supervisorRequest(http.MethodPost, path, map[string]any{"enabled": false})
 	return err
 }
