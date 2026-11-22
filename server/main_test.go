@@ -680,4 +680,5 @@ func TestHTTPIndexHTML(t *testing.T) {
 	b, _ := io.ReadAll(res.Body)
 	require.Equal(t, 200, res.StatusCode)
 	require.Contains(t, string(b), "Add Camera")
+	require.Contains(t, string(b), `id="dns-badge"`)
 }

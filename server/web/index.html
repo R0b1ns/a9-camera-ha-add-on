@@ -26,7 +26,7 @@
       font: 15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
     h1 { font-size: 20px; margin: 0 0 4px; }
     .page-head { display: flex; align-items: center; justify-content: space-between;
-      gap: 16px; margin-bottom: 8px; }
+      flex-wrap: wrap; gap: 10px 16px; margin-bottom: 8px; }
     .page-head h1 { margin: 0; }
     .btn-add { display: inline-flex; align-items: center; gap: 6px; font: inherit;
       font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 8px;
@@ -36,11 +36,11 @@
     .btn-add svg { width: 14px; height: 14px; flex: none; }
     .muted { color: var(--muted); }
     .cam-count { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
-    .dns { margin: 10px 0; font-size: 13px; color: var(--muted); }
-    .dns .mark { margin-left: 6px; font-weight: 700; }
-    .dns[data-kind="ok"] .mark { color: var(--ok); }
-    .dns[data-kind="bad"] .mark { color: var(--err); }
-    .dns[data-kind="warn"] .mark { color: var(--warn); }
+    .dns-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+      font-weight: 600; padding: 4px 10px; border-radius: 99px; white-space: nowrap;
+      background: color-mix(in srgb, var(--warn) 12%, var(--card)); color: var(--warn); }
+    .dns-badge[data-kind="ok"] { background: color-mix(in srgb, var(--ok) 14%, var(--card)); color: var(--ok); }
+    .dns-badge[data-kind="bad"] { background: color-mix(in srgb, var(--err) 12%, var(--card)); color: var(--err); }
     .alert { margin: 10px 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--err);
       background: color-mix(in srgb, var(--err) 10%, var(--card)); color: var(--text); }
     .alert b { color: var(--err); }
@@ -80,13 +80,13 @@
       <h1>A9 Cameras</h1>
       <p class="cam-count" id="cam-count">Cameras: …</p>
     </div>
+    <span class="dns-badge" id="dns-badge" data-kind="warn">DNS-Rewrite …</span>
     <a class="btn-add" data-rel="add" href="setup.html">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"
         stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       Add Camera
     </a>
   </header>
-  <div class="dns" id="dns-line" data-kind="warn">DNS-Rewrite: …</div>
   <div id="alert"></div>
   <div class="muted" id="status">Loading…</div>
   <div class="grid" id="cams"></div>
@@ -244,23 +244,14 @@
         document.getElementById("status").hidden = false;
         document.getElementById("empty").hidden = true;
         document.getElementById("cam-count").textContent = "Cameras: –";
-        document.getElementById("dns-line").textContent = "DNS-Rewrite: unavailable";
-        document.getElementById("dns-line").dataset.kind = "warn";
+        document.getElementById("dns-badge").textContent = "DNS-Rewrite …";
+        document.getElementById("dns-badge").dataset.kind = "warn";
         return;
       }
       document.getElementById("cam-count").textContent = `Cameras: ${list.length}`;
-      const dns = document.getElementById("dns-line");
-      if (st) {
-        dns.textContent = `DNS-Rewrite ${st.dns_name} => ${st.dns_ip || "unavailable"}`;
-        const mark = document.createElement("span");
-        mark.className = "mark";
-        mark.textContent = st.dns_ok ? "✓" : "✗";
-        dns.appendChild(mark);
-        dns.dataset.kind = st.dns_ok ? "ok" : "bad";
-      } else {
-        dns.textContent = "DNS-Rewrite: unavailable";
-        dns.dataset.kind = "warn";
-      }
+      const dns = document.getElementById("dns-badge");
+      dns.textContent = `DNS-Rewrite ${st ? (st.dns_ok ? "✓" : "✗") : "…"}`;
+      dns.dataset.kind = st ? (st.dns_ok ? "ok" : "bad") : "warn";
       const alert = document.getElementById("alert");
       alert.innerHTML = st && !st.dns_ok ?
         `<div class="alert"><b>DNS redirect missing.</b> <code>${st.dns_name}</code> resolves to ` +

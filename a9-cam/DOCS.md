@@ -104,9 +104,9 @@ parameters and no Python installation are needed (Python 3 ships with macOS and 
 distributions; the Windows launcher finds it). If macOS refuses to open the downloaded `.command`
 file, run `chmod +x a9-wifi-setup.command` once in Terminal.
 
-The add-on UI shows the number of connected cameras under its title and a DNS line in the form
-`DNS-Rewrite <domain> => <ip> ✓`. If `v720.naxclow.com` does not resolve to this host, the mark
-changes to `✗` and a warning explains which DNS rewrites are missing.
+The add-on UI shows the number of connected cameras under its title and a green **DNS-Rewrite ✓**
+badge in the header. If `v720.naxclow.com` does not resolve to this host, the badge turns red with
+`✗` and a warning explains which DNS rewrites are missing.
 
 Notes:
 
