@@ -62,9 +62,24 @@
       background: var(--card); color: var(--text); cursor: pointer; text-decoration: none; }
     button:hover, a.btn:hover { border-color: var(--accent); color: var(--accent); }
     button:disabled { opacity: .5; cursor: default; }
-    .wifi-change input { width: 100%; margin-top: 4px; padding: 7px 9px; font: inherit; font-size: 13px;
-      border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); }
-    .wifi-result { font-size: 13px; margin-top: 6px; }
+    .buttons .wifi-open { border-color: var(--accent); color: var(--accent); }
+    dialog { width: min(420px, calc(100vw - 24px)); padding: 0; border: 1px solid var(--line);
+      border-radius: 12px; background: var(--card); color: var(--text);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .25); }
+    dialog::backdrop { background: rgba(0, 0, 0, .45); }
+    .modal { padding: 18px; }
+    .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .modal h2 { margin: 0; font-size: 17px; }
+    .modal .sub { margin: 4px 0 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+    .modal-close { border: 0; padding: 0 4px; font-size: 20px; line-height: 1; background: none; }
+    .modal label { display: block; margin-top: 14px; font-size: 12px; color: var(--muted); }
+    .modal label input { width: 100%; margin-top: 5px; padding: 8px 10px; font: inherit; font-size: 14px;
+      border: 1px solid var(--line); border-radius: 7px; background: var(--card); color: var(--text); }
+    .modal .wifi-result { min-height: 18px; margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+    .modal .wifi-result[data-kind="ok"] { color: var(--ok); }
+    .modal .wifi-result[data-kind="err"] { color: var(--err); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .modal-actions .send { background: var(--accent); border-color: var(--accent); color: #fff; }
     [hidden] { display: none !important; }
     .empty { margin-top: 16px; padding: 28px 20px; text-align: center; background: var(--card);
       border: 1px solid var(--line); border-radius: 12px; }
@@ -97,6 +112,30 @@
       <b>Add Camera</b> above.</p>
   </div>
 
+  <dialog id="wifi-modal" aria-labelledby="wifi-modal-title">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <h2 id="wifi-modal-title">Change Wi-Fi</h2>
+          <p class="sub" id="wifi-modal-cam"></p>
+        </div>
+        <button class="modal-close" id="wifi-close" type="button" aria-label="Close">×</button>
+      </div>
+      <label>New Wi-Fi name (SSID)
+        <input id="wifi-ssid" autocomplete="off" spellcheck="false" placeholder="SSID">
+      </label>
+      <label>Password
+        <input id="wifi-pwd" type="password" autocomplete="new-password" spellcheck="false"
+               placeholder="At least 8 characters">
+      </label>
+      <p class="wifi-result" id="wifi-result" role="status"></p>
+      <div class="modal-actions">
+        <button id="wifi-cancel" type="button">Cancel</button>
+        <button class="send" id="wifi-send" type="button">Change Wi-Fi</button>
+      </div>
+    </div>
+  </dialog>
+
   <script>
     const host = location.hostname;
     // Resolve against the *directory* of this page: new URL(".", href) turns
@@ -114,6 +153,57 @@
     ];
     const cards = {};
 
+    const wifiModal = document.getElementById("wifi-modal");
+    const wifiSSID = document.getElementById("wifi-ssid");
+    const wifiPwd = document.getElementById("wifi-pwd");
+    const wifiResult = document.getElementById("wifi-result");
+    const wifiSend = document.getElementById("wifi-send");
+    let wifiUID = null;
+
+    function wifiStatus(text, kind = "") {
+      wifiResult.textContent = text;
+      wifiResult.dataset.kind = kind;
+    }
+
+    function openWiFi(uid) {
+      wifiUID = uid;
+      document.getElementById("wifi-modal-cam").textContent = `Connected camera · ${uid}`;
+      wifiSSID.value = "";
+      wifiPwd.value = "";
+      wifiStatus("");
+      wifiModal.showModal();
+      wifiSSID.focus();
+    }
+
+    document.getElementById("wifi-close").onclick = () => wifiModal.close();
+    document.getElementById("wifi-cancel").onclick = () => wifiModal.close();
+    wifiModal.addEventListener("click", e => { if (e.target === wifiModal) wifiModal.close(); });
+
+    wifiSend.onclick = async () => {
+      const ssid = wifiSSID.value.trim();
+      const pwd = wifiPwd.value;
+      if (!ssid || pwd.length < 8) {
+        wifiStatus("Enter an SSID and a password of at least 8 characters.", "err");
+        return;
+      }
+      wifiSend.disabled = true;
+      wifiStatus("Sending…");
+      try {
+        const res = await fetch(rel(`api/devices/${encodeURIComponent(wifiUID)}/wifi`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ssid, password: pwd }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        wifiStatus("Sent. The camera will reboot and reconnect.", "ok");
+        wifiPwd.value = "";
+      } catch (e) {
+        wifiStatus(`Failed: ${e.message}`, "err");
+      } finally {
+        wifiSend.disabled = false;
+      }
+    };
+
     function card(cam) {
       const el = document.createElement("div");
       el.className = "card";
@@ -128,13 +218,7 @@
             <button class="live">Live</button>
             <a class="btn" target="_blank" data-rel="snapshot">Snapshot</a>
             ${cmds.map(([name, q]) => `<button data-q="${q}">${name}</button>`).join("")}
-          </div>
-          <div class="row wifi-change">
-            <div class="label">Change Wi-Fi (connected camera)</div>
-            <input class="wifi-ssid" autocomplete="off" spellcheck="false" placeholder="New Wi-Fi name (SSID)">
-            <input class="wifi-pwd" type="password" autocomplete="new-password" spellcheck="false" placeholder="Password (8+ chars)">
-            <div class="buttons"><button class="wifi-send">Change Wi-Fi</button></div>
-            <div class="wifi-result muted"></div>
+            <button class="wifi-open">Change Wi-Fi</button>
           </div>
         </div>`;
       el.querySelector("b").textContent = cam.uid;
@@ -144,32 +228,7 @@
       el.querySelector(".snap").textContent = direct(`dev/${cam.uid}/snapshot`);
       el.querySelector('[data-rel="snapshot"]').href = rel(`dev/${cam.uid}/snapshot`);
 
-      const wifiSend = el.querySelector(".wifi-send");
-      const wifiResult = el.querySelector(".wifi-result");
-      wifiSend.onclick = async () => {
-        const ssid = el.querySelector(".wifi-ssid").value.trim();
-        const pwd = el.querySelector(".wifi-pwd").value;
-        if (!ssid || pwd.length < 8) {
-          wifiResult.textContent = "Enter an SSID and a password of at least 8 characters.";
-          return;
-        }
-        wifiSend.disabled = true;
-        wifiResult.textContent = "Sending…";
-        try {
-          const res = await fetch(rel(`api/devices/${encodeURIComponent(cam.uid)}/wifi`), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ssid, password: pwd }),
-          });
-          if (!res.ok) throw new Error(await res.text());
-          wifiResult.textContent = "Sent. The camera will reboot and reconnect.";
-          el.querySelector(".wifi-pwd").value = "";
-        } catch (e) {
-          wifiResult.textContent = `Failed: ${e.message}`;
-        } finally {
-          wifiSend.disabled = false;
-        }
-      };
+      el.querySelector(".wifi-open").onclick = () => openWiFi(cam.uid);
       const img = el.querySelector("img");
       const live = el.querySelector(".live");
       let stop = null;

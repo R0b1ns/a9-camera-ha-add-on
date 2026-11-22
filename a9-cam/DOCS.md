@@ -82,9 +82,9 @@ Ingress or localhost). The web UI has buttons for these:
 
 ## Changing the camera's Wi-Fi
 
-For a camera that is **already connected**, use the **Change Wi-Fi** form directly on its card on
-the camera overview page. Enter the new SSID and password there; the add-on sends code `204` over
-the existing connection and the camera reconnects on the new network.
+For a camera that is **already connected**, click **Change Wi-Fi** on its card on the camera
+overview page and enter the new SSID and password in the dialog that opens. The add-on sends code
+`204` over the existing connection and the camera reconnects on the new network.
 
 For a **new camera in its own AP mode (`NAXCLOW`, not configured yet)**, power it on and hold the
 **Mode** button for about **5 seconds**. Then click **Add Camera** in the add-on web page

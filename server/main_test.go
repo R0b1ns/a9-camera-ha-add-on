@@ -684,4 +684,5 @@ func TestHTTPIndexHTML(t *testing.T) {
 	require.Equal(t, 200, res.StatusCode)
 	require.Contains(t, string(b), "Add Camera")
 	require.Contains(t, string(b), `id="dns-badge"`)
+	require.Contains(t, string(b), `id="wifi-modal"`)
 }
