@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.14
+
+- Change: the camera cards no longer show the Wi-Fi inputs permanently. A **Change Wi-Fi** button
+  opens a modal dialog with the SSID/password form; sending works the same as before.
+
 ## 3.2.13
 
 - Change: the Add Camera page now lists the steps in the order DNS rewrites, home Wi-Fi (2.4 GHz,
