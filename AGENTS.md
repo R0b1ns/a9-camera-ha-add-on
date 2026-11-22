@@ -29,7 +29,7 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - `main`: Version 3.2.8 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
   neuem AP-Setup-UI und lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den
   Default-Branch `main`; vorher zog es das dbuezas-v3.1.7-Image).
-  `fork/main`: 3.2.28, gepusht; 3.2.29 steht zum Push an.
+  `fork/main`: 3.2.30, gepusht (Sicherheitshärtung + Wi-Fi-AP-Fix).
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -207,6 +207,18 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   `Device.SendCommand` speichert diese Werte aus Commands,
   `Device.ApplySettings()` sendet sie beim Verbinden erneut (`server.go`).
   So überleben LED/Flip einen Reboot der Kamera.
+- **Geändert in `4d2f8bb` (3.2.30):** `supervisorConnectWiFi` sendet jetzt `enabled: true` und
+  `ipv4: {method: auto}`. Vorher blieb ein via `disconnectWiFi` deaktiviertes WLAN-Interface aus
+  bzw. bekam per Supervisor-Default `static` keine Adresse vom Kamera-AP → „camera AP did not assign
+  an address". `waitForCameraAP` prüft zusätzlich `interfaceIPv4(iface)`, wartet 30 s und meldet
+  klarer. Regressionstests prüfen beide Felder im Join-Request.
+- **Sicherheitshärtung in `970749b`, `6ce0a8b`, `d875cd5` (3.2.30):** Supervisor-Pfade auf
+  `/network/interface/<validierte iface>/{info,accesspoints,update}` begrenzt, Redirects blockiert,
+  AP-Flow fail-closed; `GET /dev/{uid}/cmd` → POST mit Code-Allowlist (204 nur über dedizierte APIs),
+  Origin/Sec-Fetch-Site-Prüfung, Session 24 h + `SameSite=Strict` + `Secure` bei HTTPS + `/logout`,
+  Query-Parameter maskiert; atomare `access.json`/`settings.json` mit 0600, UID-Validierung,
+  Body-Limits, Server-Timeouts, SSE-Client-Limit, Security-Header/CSP, Revocation laufender
+  Direktstreams. Go-Tests weiterhin nur über HA-Build/CI möglich (lokal kein Go).
 - **Geändert in `40ea7da` (3.2.29):** Reboot-Button wird bei Klick deaktiviert,
   zeigt `.spinner` + „Rebooting…". `el._rebootSince()`/`_finishReboot()`
   setzen ihn zurück, sobald `cam.connected_at` wechselt (Reconnect); 3-min-

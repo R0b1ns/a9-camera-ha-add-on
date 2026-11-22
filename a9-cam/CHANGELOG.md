@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.2.30
+
+- Fix: direct Wi-Fi setup now enables the Wi-Fi interface and requests DHCP. Without `enabled: true`
+  and `ipv4.method: auto`, Home Assistant could join the camera AP but never receive an address, so
+  the setup stopped with "camera AP did not assign an address". The address probe also got more time
+  and a clearer error message.
+- Security: camera commands are POST-only and restricted to known codes; cross-origin writes,
+  oversized request bodies and redirect leaks of the Supervisor token are rejected. Sessions now use
+  `SameSite=Strict`, expire after 24 hours and can be cleared with `POST /logout`. Access settings are
+  stored atomically with private file permissions, invalid UIDs are rejected and revoking network
+  access stops running direct-link streams. The UI adds security headers and several input checks.
+
 ## 3.2.29
 
 - Change: clicking **Reboot** now disables the button and shows a spinner. It becomes usable again
