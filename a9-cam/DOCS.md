@@ -14,8 +14,9 @@ The cameras connect to it instead of China, and it serves their video and audio 
 4. Restart the cameras, or wait. After a server restart a camera can take up to about 10 minutes to
    come back.
 5. Open the add-on web UI from the add-on panel in Home Assistant (Ingress). Each connected camera
-   shows up with its ID and URLs. You can also open the URLs directly on port 8557 after a one-time
-   Home Assistant login (see **Access control**).
+   shows up as a card with a live preview, its IDs and URLs under **Streams** and all buttons under
+   **Controls**. You can also open the URLs directly on port 8557 after a one-time Home Assistant
+   login (see **Access control**).
 6. Optional but recommended: install the **A9 Camera** integration from HACS (same repository) and
    restart Home Assistant. It finds this add-on by itself and adds each camera as a device with a live
    camera, switches and sensors.
