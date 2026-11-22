@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.2.13
+
+- Change: the Add Camera page now lists the steps in the order DNS rewrites, home Wi-Fi (2.4 GHz,
+  WPA2 at most, no WPA3), host check, camera AP mode. Step 1 checks `/api/status`: when the rewrite is
+  correct its block turns green and shows the IP; otherwise the rewrite instructions stay.
+- Change: the local helper block stays visible as an alternative even when direct AP setup is
+  available.
+
 ## 3.2.12
 
 - Change: the overview header now shows a compact green **DNS-Rewrite ✓** badge next to the title
