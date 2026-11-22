@@ -81,14 +81,22 @@
     .preview.live .live-tag { display: inline-flex; }
     .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff5a52;
       box-shadow: 0 0 0 3px rgba(255, 90, 82, .25); }
+    .play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      display: grid; place-items: center; width: 52px; height: 52px; padding: 0;
+      border-radius: 50%; border: 1px solid rgba(255, 255, 255, .75);
+      background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer; opacity: .85;
+      transition: opacity .15s ease, transform .15s ease; }
+    .preview:hover .play, .play:focus-visible { opacity: 1; }
+    .play:hover { transform: translate(-50%, -50%) scale(1.06); }
+    .play svg { width: 24px; height: 24px; fill: currentColor; }
     .body { padding: 18px; }
-    .card-head { display: flex; justify-content: space-between; align-items: flex-start;
+    .card-head { display: flex; justify-content: space-between; align-items: center;
       gap: 12px; margin-bottom: 16px; }
     .card-head h2 { overflow-wrap: anywhere; }
-    .state { flex: none; max-width: 55%; font-size: 12px; text-align: right; overflow-wrap: anywhere; }
-    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-      background: var(--muted); margin-right: 6px; }
-    .dot.on { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+    .meta { flex: none; display: flex; flex-wrap: wrap; align-items: center;
+      justify-content: flex-end; gap: 4px 8px; font-size: 12px; color: var(--muted); }
+    .host, .fw { white-space: nowrap; }
+    .fw { padding: 2px 7px; border-radius: 99px; background: var(--code); font-size: 11px; }
     .section { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
     .card-head + .section { border-top: 0; padding-top: 0; margin-top: 0; }
     .section-title { margin-bottom: 9px; font-size: 11px; font-weight: 700; color: var(--muted);
@@ -99,6 +107,18 @@
     code { display: block; background: var(--code); color: var(--text); padding: 8px 10px;
       border-radius: 8px; font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; user-select: all; }
     .buttons { display: flex; flex-wrap: wrap; gap: 7px; }
+    .switches { display: grid; gap: 9px; margin-bottom: 14px; }
+    .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      font-size: 13px; font-weight: 600; cursor: pointer; }
+    .switch-row input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    .track { position: relative; flex: none; width: 38px; height: 22px; border-radius: 99px;
+      background: var(--line); transition: background .15s ease; }
+    .track::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+      border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+      transition: transform .15s ease; }
+    .switch-row input:checked + .track { background: var(--accent); }
+    .switch-row input:checked + .track::after { transform: translateX(16px); }
+    .switch-row input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
     dialog { width: min(440px, calc(100vw - 24px)); padding: 0; border: 1px solid var(--line);
       border-radius: 14px; background: var(--card); color: var(--text);
       box-shadow: 0 16px 48px rgba(0, 0, 0, .25); }
@@ -128,8 +148,8 @@
       .head-actions { width: 100%; }
       .head-actions .btn-add { flex: 1; }
       .grid { grid-template-columns: 1fr; }
-      .card-head { flex-direction: column; gap: 4px; }
-      .state { max-width: 100%; text-align: left; }
+      .card-head { flex-direction: column; align-items: flex-start; gap: 4px; }
+      .meta { justify-content: flex-start; }
     }
   </style>
 </head>
@@ -195,11 +215,10 @@
     document.querySelector("[data-rel='add']").href = rel("setup.html");
     // Direct links deliberately use port 8557: the first open asks for the HA login.
     const direct = path => `http://${host}:8557/${path}`;
-    const cmds = [
-      ["IR on", "code=202&IrLed=1"], ["IR off", "code=202&IrLed=0"],
-      ["Flip", "code=216&mirrorFlip=4"], ["No flip", "code=216&mirrorFlip=0"],
-      ["LED on", "code=210&instLed=1"], ["LED off", "code=210&instLed=0"],
-      ["Reboot", "code=299&reboot=1"],
+    const toggles = [
+      ["IR LED", "IrLed", "code=202&amp;IrLed=1", "code=202&amp;IrLed=0"],
+      ["Status LED", "instLed", "code=210&amp;instLed=1", "code=210&amp;instLed=0"],
+      ["Flip image", "mirrorFlip", "code=216&amp;mirrorFlip=4", "code=216&amp;mirrorFlip=0"],
     ];
     const cards = {};
 
@@ -261,9 +280,16 @@
         <div class="preview">
           <img alt="">
           <span class="live-tag"><span class="live-dot"></span>Live</span>
+          <button class="play" type="button" aria-label="Live">
+            <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+            <svg class="stop-icon" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M6 6h12v12H6z"/></svg>
+          </button>
         </div>
         <div class="body">
-          <div class="card-head"><h2></h2><span class="state muted"></span></div>
+          <div class="card-head">
+            <h2></h2>
+            <div class="meta"><span class="host"></span><span class="fw" hidden></span></div>
+          </div>
           <div class="section">
             <div class="section-title">Streams</div>
             <div class="field"><div class="label">RTSP (MJPEG + audio)</div><code class="rtsp"></code></div>
@@ -272,10 +298,16 @@
           </div>
           <div class="section">
             <div class="section-title">Controls</div>
+            <div class="switches">
+              ${toggles.map(([name, key, on, off]) => `
+                <label class="switch-row"><span>${name}</span>
+                  <input type="checkbox" class="toggle" data-key="${key}" data-on="${on}" data-off="${off}">
+                  <span class="track" aria-hidden="true"></span>
+                </label>`).join("")}
+            </div>
             <div class="buttons">
-              <button class="btn primary live">Live</button>
               <a class="btn" target="_blank" data-rel="snapshot">Snapshot</a>
-              ${cmds.map(([name, q]) => `<button class="btn" data-q="${q}">${name}</button>`).join("")}
+              <button class="btn" data-q="code=299&amp;reboot=1">Reboot</button>
               <button class="btn wifi wifi-open">Change Wi-Fi</button>
             </div>
           </div>
@@ -290,22 +322,34 @@
       el.querySelector(".wifi-open").onclick = () => openWiFi(cam.uid);
       const preview = el.querySelector(".preview");
       const img = el.querySelector("img");
-      const live = el.querySelector(".live");
+      const playBtn = el.querySelector(".play");
+      const playIcon = el.querySelector(".play-icon");
+      const stopIcon = el.querySelector(".stop-icon");
       let stop = null;
       function liveEnded() {
         stop = null;
-        live.textContent = "Live";
-        live.classList.remove("active");
+        playIcon.hidden = false;
+        stopIcon.hidden = true;
+        playBtn.setAttribute("aria-label", "Live");
         preview.classList.remove("live");
         img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
       }
-      live.onclick = () => {
+      playBtn.onclick = () => {
         if (stop) { stop(); return; }
         stop = play(img, cam.uid, liveEnded);
-        live.textContent = "Stop";
-        live.classList.add("active");
+        playIcon.hidden = true;
+        stopIcon.hidden = false;
+        playBtn.setAttribute("aria-label", "Stop");
         preview.classList.add("live");
       };
+      el.querySelectorAll(".toggle").forEach(t => {
+        t.onchange = () => {
+          const q = t.checked ? t.dataset.on : t.dataset.off;
+          // Keep the new position until the camera reports its base info again.
+          t.dataset.pending = String(Date.now() + 5000);
+          fetch(rel(`dev/${cam.uid}/cmd?${q}`)).catch(() => {});
+        };
+      });
       el.querySelectorAll("button[data-q]").forEach(b =>
         b.onclick = () => fetch(rel(`dev/${cam.uid}/cmd?${b.dataset.q}`)));
       img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
@@ -389,9 +433,20 @@
           cards[cam.uid] = card(cam);
           document.getElementById("cams").appendChild(cards[cam.uid]);
         }
-        const v = cam.info && cam.info.version ? ` · fw ${cam.info.version}` : "";
-        cards[cam.uid].querySelector(".state").innerHTML =
-          `<span class="dot ${cam.streaming ? "on" : ""}"></span>${cam.host}${v}`;
+        const c = cards[cam.uid];
+        c.querySelector(".host").textContent = cam.host;
+        const version = cam.info && cam.info.version;
+        const fw = c.querySelector(".fw");
+        fw.hidden = !version;
+        fw.textContent = version ? String(version) : "";
+        c.querySelectorAll(".toggle").forEach(t => {
+          if (Date.now() < Number(t.dataset.pending || 0)) return;
+          const value = cam.info && cam.info[t.dataset.key];
+          if (value === undefined || value === null) return;
+          t.checked = t.dataset.key === "mirrorFlip"
+            ? Number(value) !== 0
+            : Number(value) === 1;
+        });
       }
       for (const uid of Object.keys(cards)) {
         if (!seen.has(uid)) { cards[uid].remove(); delete cards[uid]; }
