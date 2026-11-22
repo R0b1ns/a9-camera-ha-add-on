@@ -88,11 +88,14 @@ the existing connection and the camera reconnects on the new network.
 
 For a **new camera in its own AP mode (`NAXCLOW`, not configured yet)**, power it on and hold the
 **Mode** button for about **5 seconds**. Then click **Add Camera** in the add-on web page
-(or go to `setup.html` in the same Ingress URL). That page is only for new devices. It checks
-`/api/status` itself: when HA is connected by **LAN** and has a Wi-Fi interface that is **not**
-connected, it offers the direct **Connect the camera** form. Otherwise only the helper is shown.
-In the direct flow, click **Scan Wi-Fi**, pick the camera's access point, then enter your 2.4 GHz
-home network and its password. The add-on joins the camera AP via the Supervisor network API, sends
+(or go to `setup.html` in the same Ingress URL). That page is only for new devices and lists four
+steps: keep the DNS rewrites (checked via `/api/status`: when correct the block turns green and shows
+the IP, otherwise the rewrite instructions stay), choose a **2.4 GHz** network with **WPA2** at most
+(8–63 characters, no 5 GHz/WPA3), check this Home Assistant, and put the camera into AP mode.
+The host check uses `/api/status`: when HA is connected by **LAN** and has a Wi-Fi interface that is
+**not** connected, it offers the direct **Connect the camera** form. Otherwise only the helper is
+shown. In the direct flow, click **Scan Wi-Fi**, pick the camera's access point, then enter your
+home network and password. The add-on joins the camera AP via the Supervisor network API, sends
 code `204` over TCP
 `6123`, and disconnects Wi-Fi again afterwards. HA stays reachable over LAN throughout. It needs the
 `hassio_api` permission with the `manager` role; a Wi-Fi connection that appears while the page is

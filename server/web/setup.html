@@ -42,6 +42,10 @@
     .pill[data-kind="warn"] { background: var(--warn-soft); color: var(--warn); }
     .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
     .steps li { display: flex; gap: 12px; }
+    .steps li.ok { padding: 8px; margin: -8px; border-radius: 10px; background: var(--ok-soft);
+      box-shadow: inset 0 0 0 1px var(--ok); }
+    .steps li.ok .num { background: var(--ok); color: #fff; }
+    .steps li.ok .check { color: var(--ok); font-weight: 600; }
     .num { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px;
       border-radius: 50%; background: var(--accent-soft); color: var(--accent);
       font-size: 12px; font-weight: 700; }
@@ -96,21 +100,21 @@
     <section class="card" aria-labelledby="prepare-title">
       <div class="card-head"><h2 id="prepare-title">Prepare the camera</h2></div>
       <ol class="steps">
-        <li><span class="num">1</span><div>
-          <b>Switch the camera into AP mode</b>
-          <p>Power it on, then hold the <kbd>Mode</kbd> button for about <b>5 seconds</b>. It now broadcasts its own Wi-Fi network, usually called <code>NAXCLOW…</code>.</p>
+        <li id="dns-step"><span class="num">1</span><div>
+          <b>Keep the DNS rewrites in place</b>
+          <p class="check" id="dns-check">Point <code>*.naxclow.com</code> and <code>*.naxclow.com.cn</code> to the Home Assistant host in your router/AdGuard – otherwise the camera will call the original cloud again.</p>
         </div></li>
         <li><span class="num">2</span><div>
+          <b>Choose your home Wi-Fi</b>
+          <p>Use a <b>2.4&nbsp;GHz</b> network with a password of 8–63 characters. These cameras do not support 5&nbsp;GHz or WPA3 – use WPA2 at most.</p>
+        </div></li>
+        <li><span class="num">3</span><div>
           <b>Check this Home Assistant</b>
           <p class="check" id="host-check">Checking LAN and Wi-Fi…</p>
         </div></li>
-        <li><span class="num">3</span><div>
-          <b>Choose your home Wi-Fi</b>
-          <p>Use a <b>2.4&nbsp;GHz</b> network with a password of 8–63 characters. These cameras do not support 5&nbsp;GHz.</p>
-        </div></li>
         <li><span class="num">4</span><div>
-          <b>Keep the DNS rewrites in place</b>
-          <p>Point <code>*.naxclow.com</code> and <code>*.naxclow.com.cn</code> to the Home Assistant host in your router/AdGuard – otherwise the camera will call the original cloud again.</p>
+          <b>Switch the camera into AP mode</b>
+          <p>Power it on, then hold the <kbd>Mode</kbd> button for about <b>5 seconds</b>. It now broadcasts its own Wi-Fi network, usually called <code>NAXCLOW…</code>.</p>
         </div></li>
       </ol>
     </section>
@@ -194,10 +198,19 @@
 
     async function loadWiFiState() {
       const check = $("host-check"), apcard = $("apcard"), helper = $("helpercard");
+      const dnsStep = $("dns-step"), dnsCheck = $("dns-check"), dnsDefault = dnsCheck.innerHTML;
       try {
         const res = await fetch(rel("api/status"));
         if (!res.ok) throw new Error(res.status);
         const st = await res.json();
+        // Step 1 shows the measured DNS state, not just the instruction.
+        if (st.dns_ok) {
+          dnsCheck.textContent = `DNS rewrites are in place: ${st.dns_name} → ${st.dns_ip || "this host"}.`;
+          dnsStep.classList.add("ok");
+        } else {
+          dnsCheck.innerHTML = dnsDefault;
+          dnsStep.classList.remove("ok");
+        }
         // Decide from the measured state, not from a written prerequisite.
         let reason = "";
         if (!st.wifi_available) reason = "No Wi-Fi interface in Home Assistant";
@@ -222,6 +235,8 @@
       } catch (e) {
         apcard.hidden = true;
         helper.hidden = false;
+        dnsCheck.innerHTML = dnsDefault;
+        dnsStep.classList.remove("ok");
         status(check, "Network check failed – use the local helper.", "warn");
         pill.textContent = "Check unavailable";
         pill.dataset.kind = "warn";
@@ -255,7 +270,7 @@
         } else if (list.length) {
           status(scanStatus, `${list.length} networks found – pick the NAXCLOW one.`, "warn");
         } else {
-          status(scanStatus, "No networks found. Check step 1 and scan again.", "warn");
+          status(scanStatus, "No networks found. Check step 4 and scan again.", "warn");
         }
       } catch (e) {
         status(scanStatus, `Scan failed: ${e.message}`, "err");
