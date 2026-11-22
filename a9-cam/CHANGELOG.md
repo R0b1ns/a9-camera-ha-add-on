@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.2.17
+
+- Change: live video is started/stopped with a play/stop button directly on the camera preview; the
+  LIVE badge stays in the image and the status dot before the host is gone.
+- Change: IR LED, status LED and image flip are switches instead of pairs of buttons, initialized from
+  the camera's reported state. The firmware version is now a compact badge without the "fw" label.
+
 ## 3.2.16
 
 - Change: removed the redundant "N camera(s) connected" line below the header. The camera count is
