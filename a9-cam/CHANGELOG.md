@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.2.28
+
+- Fix: IR LED, status LED and image flip settings are now saved in `/data/settings.json` and sent to
+  the camera again after a reboot or reconnect, instead of falling back to the camera defaults.
+
+## 3.2.27
+
+- New: when a stream is started through a direct link or another client, the camera card now mirrors
+  it automatically. It stops again once the other viewer leaves, so the card never keeps the camera
+  streaming on its own. A manual stop is respected until a new stream starts.
+- Change: turning **Network access** back on restores the safe default for **Password required**
+  (on).
+
 ## 3.2.26
 
 - Change: the **Password required** switch is now hidden while **Network access** is off, since

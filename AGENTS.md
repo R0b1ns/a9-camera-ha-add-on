@@ -29,7 +29,7 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - `main`: Version 3.2.8 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
   neuem AP-Setup-UI und lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den
   Default-Branch `main`; vorher zog es das dbuezas-v3.1.7-Image).
-  `fork/main`: 3.2.25, gepusht; 3.2.26 steht zum Push an.
+  `fork/main`: 3.2.26, gepusht; 3.2.28 steht zum Push an.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -196,6 +196,17 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   ausgeblendet (`pwdRow.hidden`), solange „Network access" aus ist. `syncAccess()`
   hängt an `el._syncAccess` und läuft beim Umschalten und in `update()`. Der
   gespeicherte Wert bleibt erhalten; Backend prüft Network Access ohnehin zuerst.
+- **Neu in `ef5aa2b`/`bfb85c5` (3.2.27):** `server/viewers.go` zählt aktive
+  `/live`-Viewer getrennt nach UI (`?raw`) und Direktlinks. `/dev/list` liefert
+  `external_streaming`. Die Karte spiegelt externe Streams automatisch
+  (`live.refresh()`, `auto`/`suppress`) und stoppt sie, wenn der andere Viewer
+  geht. Beim Reaktivieren von Network Access wird `password_required=true`
+  erzwungen.
+- **Neu in `da62abe` (3.2.28):** `a9.Settings` hat pointer-Felder `ir_led`,
+  `inst_led`, `mirror_flip` (omitempty, alte Dateien bleiben gültig).
+  `Device.SendCommand` speichert diese Werte aus Commands,
+  `Device.ApplySettings()` sendet sie beim Verbinden erneut (`server.go`).
+  So überleben LED/Flip einen Reboot der Kamera.
 - Weiterhin bewusst: `8556/tcp` ist jetzt standardmäßig leer (RTSP aus),
   damit auch RTSP nicht ungeschützt im Netzwerk liegt. Wer go2rtc nutzt,
   muss den Port in den Add-on-Netzwerkoptionen aktivieren.

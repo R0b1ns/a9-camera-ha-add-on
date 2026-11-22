@@ -15,9 +15,10 @@ The cameras connect to it instead of China, and it serves their video and audio 
    come back.
 5. Open the add-on web UI from the add-on panel in Home Assistant (Ingress). Each connected camera
    shows up as a card with a live preview; clicking anywhere on the image starts the stream and
-   clicking again stops it. The **LIVE** badge uses the server's real stream state, so it also lights
-   up when the stream was started through a direct link or another client. The play triangle is only
-   a hint while stopped. The camera icon in the lower left opens the current snapshot in a
+   clicking again stops it. The **LIVE** badge uses the server's real stream state. When a stream is
+   started through a direct link or another client, the card mirrors it automatically and stops again
+   when the other viewer leaves, so it never keeps the camera streaming on its own. The play triangle
+   is only a hint while stopped. The camera icon in the lower left opens the current snapshot in a
    dialog (and lets you download it) without leaving the page – opening an Ingress URL in a new tab
    would get a 401 because that tab has no Home Assistant ingress session. Its URLs are
    grouped under **Streams**, while **Controls** has switches for IR LED and status LED plus Reboot
@@ -49,7 +50,8 @@ Each camera card has two switches under **Streams**:
 - **Password required** (default on): when off, only that camera's `/dev/CAMERA_ID/live` and
   `/dev/CAMERA_ID/snapshot` work without a login. The web UI and the integration API always require
   the Home Assistant login. Ingress and local requests are unaffected by both switches. This switch
-  is hidden while network access is off, because external requests are blocked anyway.
+  is hidden while network access is off, because external requests are blocked anyway. Turning
+  network access back on restores the password default (on).
 
 The switches are stored per camera in `/data/access.json`.
 
@@ -98,6 +100,10 @@ Ingress or localhost). The web UI has buttons for these:
 | Flip image | `code=216&mirrorFlip=4` / `code=216&mirrorFlip=0` |
 | Status LED on / off | `code=210&instLed=1` / `code=210&instLed=0` |
 | Reboot | `code=299&reboot=1` |
+
+The infrared, status LED and flip settings are saved by the add-on in `/data/settings.json` and sent
+to the camera again whenever it connects, so a reboot (or a camera that reboots itself) does not reset
+them.
 
 ## Changing the camera's Wi-Fi
 
