@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.26
+
+- Change: the **Password required** switch is now hidden while **Network access** is off, since
+  external requests are blocked with HTTP 403 anyway. It reappears as soon as network access is on.
+
 ## 3.2.25
 
 - Change: removed the duplicate "Flip image" switch from **Controls**. The icon in the top right of

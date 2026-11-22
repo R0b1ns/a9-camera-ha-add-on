@@ -48,7 +48,8 @@ Each camera card has two switches under **Streams**:
   Requests through Ingress or from the host itself still work, so the UI can show its preview.
 - **Password required** (default on): when off, only that camera's `/dev/CAMERA_ID/live` and
   `/dev/CAMERA_ID/snapshot` work without a login. The web UI and the integration API always require
-  the Home Assistant login. Ingress and local requests are unaffected by both switches.
+  the Home Assistant login. Ingress and local requests are unaffected by both switches. This switch
+  is hidden while network access is off, because external requests are blocked anyway.
 
 The switches are stored per camera in `/data/access.json`.
 
