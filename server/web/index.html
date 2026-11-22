@@ -68,7 +68,6 @@
       background: var(--err-soft); color: var(--text); font-size: 14px; }
     .alert b { color: var(--err); }
     .alert code { display: inline; padding: 1px 4px; background: var(--code); }
-    .status { margin-bottom: 16px; font-size: 14px; color: var(--muted); }
     .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
     .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
       box-shadow: var(--shadow); overflow: hidden; }
@@ -154,7 +153,6 @@
     </header>
 
     <div id="alert"></div>
-    <div class="status" id="status">Loading…</div>
     <div class="grid" id="cams"></div>
     <div class="card empty" id="empty" hidden>
       <div class="empty-icon">◎</div>
@@ -366,8 +364,6 @@
           fetch(rel("api/status")).then(r => r.json()).catch(() => null),
         ]);
       } catch (e) {
-        document.getElementById("status").textContent = "Server unreachable";
-        document.getElementById("status").hidden = false;
         document.getElementById("empty").hidden = true;
         document.getElementById("cam-count").textContent = "Cameras: –";
         document.getElementById("dns-badge").textContent = "DNS-Rewrite …";
@@ -385,8 +381,6 @@
         `<code>${(st.local_ips || []).join(", ") || "unknown"}</code>. ` +
         `Set the DNS rewrites for <code>*.naxclow.com</code> and <code>*.naxclow.com.cn</code> ` +
         `in your router/AdGuard, then restart the cameras.</div>` : "";
-      document.getElementById("status").textContent = `${list.length} camera(s) connected`;
-      document.getElementById("status").hidden = list.length === 0;
       document.getElementById("empty").hidden = list.length !== 0;
       const seen = new Set();
       for (const cam of list) {
