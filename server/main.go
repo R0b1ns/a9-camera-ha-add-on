@@ -149,17 +149,46 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Msg("[main] camera http (port 80 used by another add-on? see the camera_http_port option)")
 		}
-		go func() { log.Fatal().Err(http.Serve(ln, camMux)).Msg("[main] camera http") }()
+		go func() { log.Fatal().Err(serveHTTP(ln, camMux)).Msg("[main] camera http") }()
 	}
 
-	uiMux := authMiddleware(routes(), sessionSecret, os.Getenv("SUPERVISOR_TOKEN") != "")
+	uiMux := authMiddleware(securityHeaders(routes()), sessionSecret, os.Getenv("SUPERVISOR_TOKEN") != "")
 	ln, err := net.Listen("tcp", *uiAddr)
 	if err != nil {
 		log.Fatal().Err(err).Msg("[main] ui")
 	}
 	log.Info().Str("camera_http", *httpAddr).Str("ui", *uiAddr).Int("camera", *camPort).Str("rtsp", *rtspAddr).Msg("[main] listen")
 	go discover(ln.Addr().(*net.TCPAddr).Port)
-	log.Fatal().Err(http.Serve(ln, uiMux)).Msg("[main] ui")
+	log.Fatal().Err(serveHTTP(ln, uiMux)).Msg("[main] ui")
+}
+
+// serveHTTP sets limits for slow clients. Streaming endpoints need no
+// WriteTimeout, so only header/read and idle timeouts are configured.
+func serveHTTP(ln net.Listener, h http.Handler) error {
+	s := &http.Server{
+		Handler:           h,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 16,
+	}
+	return s.Serve(ln)
+}
+
+// securityHeaders applies to the UI and the login page. Ingress embeds the UI
+// in an iframe on the same Home Assistant origin, hence frame-ancestors 'self'.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("X-Frame-Options", "SAMEORIGIN")
+		h.Set("Content-Security-Policy",
+			"default-src 'self'; script-src 'self' 'unsafe-inline'; "+
+				"style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; "+
+				"media-src 'self' blob:; connect-src 'self'; object-src 'none'; "+
+				"base-uri 'none'; frame-ancestors 'self'")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // cameraRoutes is the fake cloud API the cameras call on port 80.
@@ -255,6 +284,8 @@ func apiMJPEG(w http.ResponseWriter, r *http.Request) {
 	raw := r.URL.Query().Has("raw")
 	viewers.add(uid, raw, 1)
 	defer viewers.add(uid, raw, -1)
+	unregister := viewers.register(uid, raw, func() { _ = cons.Stop() })
+	defer unregister()
 
 	log.Debug().Str("uid", uid).Str("addr", r.RemoteAddr).Msg("[http] mjpeg start")
 

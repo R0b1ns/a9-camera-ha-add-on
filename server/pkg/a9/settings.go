@@ -54,7 +54,7 @@ func (s *settingsStore) set(uid string, v Settings) error {
 	}
 	b, _ := json.MarshalIndent(s.m, "", "  ")
 	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if err := os.WriteFile(tmp, b, 0o600); err != nil {
 		return err
 	}
 	return os.Rename(tmp, s.path)

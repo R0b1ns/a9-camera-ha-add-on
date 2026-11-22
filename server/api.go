@@ -283,9 +283,16 @@ func (e *events) publish(d *a9.Device) {
 	}
 }
 
+const maxEventClients = 32
+
 func apiEvents(w http.ResponseWriter, r *http.Request) {
 	c := make(chan []byte, 64)
 	bus.mu.Lock()
+	if len(bus.clients) >= maxEventClients {
+		bus.mu.Unlock()
+		http.Error(w, "too many event clients", http.StatusServiceUnavailable)
+		return
+	}
 	bus.clients[c] = struct{}{}
 	bus.mu.Unlock()
 	defer func() {
@@ -348,7 +355,7 @@ func discover(httpPort int) {
 	req, _ := http.NewRequest("POST", "http://supervisor/discovery", bytes.NewReader(body))
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
-	res, err := http.DefaultClient.Do(req)
+	res, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
 	if err != nil {
 		log.Warn().Err(err).Msg("[main] discovery")
 		return
@@ -411,8 +418,12 @@ func apiWiFi(w http.ResponseWriter, r *http.Request) {
 // UI and the integration API always stay behind the Home Assistant login.
 func apiAccess(w http.ResponseWriter, r *http.Request) {
 	uid := r.PathValue("uid")
-	if uid == "" {
-		http.Error(w, "missing uid", http.StatusBadRequest)
+	if !validUID(uid) {
+		http.Error(w, "invalid uid", http.StatusBadRequest)
+		return
+	}
+	if server.Get(uid) == nil {
+		http.Error(w, a9.ErrNotConnected.Error(), http.StatusNotFound)
 		return
 	}
 	var body struct {
@@ -424,21 +435,30 @@ func apiAccess(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid JSON body", http.StatusBadRequest)
 		return
 	}
-	ac := access.get(uid)
-	if body.NetworkAccess != nil {
-		// When the direct links become reachable again, restore the safe
-		// default: a password is required unless turned off in a later request.
-		if *body.NetworkAccess && !ac.NetworkAccess {
-			ac.PasswordRequired = true
+	wasReachable := access.get(uid).NetworkAccess
+	var ac cameraAccess
+	err := access.update(uid, func(cur *cameraAccess) {
+		if body.NetworkAccess != nil {
+			// When the direct links become reachable again, restore the safe
+			// default: a password is required unless turned off later.
+			if *body.NetworkAccess && !cur.NetworkAccess {
+				cur.PasswordRequired = true
+			}
+			cur.NetworkAccess = *body.NetworkAccess
 		}
-		ac.NetworkAccess = *body.NetworkAccess
-	}
-	if body.PasswordRequired != nil {
-		ac.PasswordRequired = *body.PasswordRequired
-	}
-	if err := access.set(uid, ac); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		if body.PasswordRequired != nil {
+			cur.PasswordRequired = *body.PasswordRequired
+		}
+		ac = *cur
+	})
+	if err != nil {
+		http.Error(w, "cannot store access settings", http.StatusInternalServerError)
 		return
+	}
+	// Revoking network access must also stop streams that are already running:
+	// the auth middleware only sees the next request.
+	if wasReachable && !ac.NetworkAccess {
+		viewers.stopDirect(uid)
 	}
 	log.Info().Str("uid", uid).Bool("network_access", ac.NetworkAccess).
 		Bool("password_required", ac.PasswordRequired).Msg("[api] access")

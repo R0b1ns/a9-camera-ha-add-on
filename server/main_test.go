@@ -619,6 +619,34 @@ func TestAccessEndpoint(t *testing.T) {
 	require.Equal(t, true, found2["password_required"])
 }
 
+func TestAccessRejectsUnknownUID(t *testing.T) {
+	_, _, url := setup(t)
+	for _, uid := range []string{"bad.uid", "bad%2Fuid"} {
+		res, err := http.Post(url+"/api/devices/"+uid+"/access", "application/json",
+			strings.NewReader(`{"network_access":false}`))
+		require.NoError(t, err)
+		_ = res.Body.Close()
+		require.Equal(t, http.StatusBadRequest, res.StatusCode, uid)
+	}
+	res, err := http.Post(url+"/api/devices/does-not-exist/access", "application/json",
+		strings.NewReader(`{"network_access":false}`))
+	require.NoError(t, err)
+	_ = res.Body.Close()
+	require.Equal(t, http.StatusNotFound, res.StatusCode)
+}
+
+func TestStopDirectViewers(t *testing.T) {
+	viewers = liveViewers{raw: map[string]int{}, link: map[string]int{},
+		stops: map[string]map[*viewerStop]struct{}{}}
+	var stopped []bool
+	u1 := viewers.register("cam1", false, func() { stopped = append(stopped, false) })
+	u2 := viewers.register("cam1", true, func() { stopped = append(stopped, true) })
+	viewers.stopDirect("cam1")
+	require.Equal(t, []bool{false}, stopped, "only direct links must be stopped")
+	u1()
+	u2()
+}
+
 func TestLiveViewers(t *testing.T) {
 	viewers = liveViewers{raw: map[string]int{}, link: map[string]int{}}
 	viewers.add("cam1", false, 1)

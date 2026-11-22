@@ -37,7 +37,7 @@ func loadSessionSecret(path string) []byte {
 		log.Fatal().Err(err).Msg("[auth] session secret")
 	}
 	if path != "" {
-		if err := os.WriteFile(path, b, 0o600); err != nil {
+		if err := writePrivateFile(path, b); err != nil {
 			log.Warn().Err(err).Msg("[auth] cannot store session secret")
 		}
 	}
