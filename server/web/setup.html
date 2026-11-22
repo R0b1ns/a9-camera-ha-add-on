@@ -70,6 +70,9 @@
     .hint[data-kind="ok"] { color: var(--ok); }
     .hint[data-kind="warn"] { color: var(--warn); }
     .hint[data-kind="err"] { color: var(--err); }
+    [hidden] { display: none !important; }
+    .steps .check[data-kind="ok"] { color: var(--ok); font-weight: 600; }
+    .steps .check[data-kind="warn"] { color: var(--warn); font-weight: 600; }
     .actions { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
     .footnote { margin: 14px 0 0; font-size: 13px; color: var(--muted); }
     .downloads { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; }
@@ -98,8 +101,8 @@
           <p>Power it on, then hold the <kbd>Mode</kbd> button for about <b>5 seconds</b>. It now broadcasts its own Wi-Fi network, usually called <code>NAXCLOW…</code>.</p>
         </div></li>
         <li><span class="num">2</span><div>
-          <b>Make sure Home Assistant can help</b>
-          <p>Home Assistant must be connected by <b>LAN</b> with its own Wi-Fi unused. It briefly joins the camera's network and disconnects again – LAN keeps it reachable the whole time.</p>
+          <b>Check this Home Assistant</b>
+          <p class="check" id="host-check">Checking LAN and Wi-Fi…</p>
         </div></li>
         <li><span class="num">3</span><div>
           <b>Choose your home Wi-Fi</b>
@@ -150,8 +153,11 @@
       <p class="footnote">Home Assistant joins the camera's AP, sends the settings and switches its Wi-Fi off again. The camera reboots and appears on the overview once it is back online.</p>
     </section>
 
-    <section class="card" aria-labelledby="helper-title">
-      <div class="card-head"><h2 id="helper-title">No Wi-Fi in Home Assistant?</h2></div>
+    <section class="card" id="helpercard" aria-labelledby="helper-title">
+      <div class="card-head">
+        <h2 id="helper-title">Use the local helper</h2>
+        <span class="pill" id="helper-pill" data-kind="warn"></span>
+      </div>
       <p class="sub">Use a Mac, Windows or Linux computer: join the camera's <code>NAXCLOW…</code> network, run the helper and enter your Wi-Fi there. No installation, no parameters.</p>
       <div class="downloads">
         <a href="helper/a9-wifi-setup.py" download>macOS / Linux (Python 3)</a>
@@ -187,23 +193,40 @@
     [apscan, $("apssid"), $("appass")].forEach(el => el.addEventListener("input", validate));
 
     async function loadWiFiState() {
+      const check = $("host-check"), apcard = $("apcard"), helper = $("helpercard");
       try {
         const res = await fetch(rel("api/status"));
         if (!res.ok) throw new Error(res.status);
         const st = await res.json();
-        if (st.wifi_available) {
+        // Decide from the measured state, not from a written prerequisite.
+        let reason = "";
+        if (!st.wifi_available) reason = "No Wi-Fi interface in Home Assistant";
+        else if (st.wifi_connected) reason = "Wi-Fi is already connected in Home Assistant";
+        else if (!st.lan_connected) reason = "No LAN connection detected in Home Assistant";
+        const ready = !reason && st.ap_ready === true;
+        apcard.hidden = !ready;
+        helper.hidden = ready;
+        if (ready) {
+          status(check, "LAN connected, Wi-Fi free – direct setup available.", "ok");
           pill.textContent = `Wi-Fi ready · ${st.wifi_iface}`;
           pill.dataset.kind = "ok";
         } else {
-          pill.textContent = "No Wi-Fi in HA";
+          reason = reason || "Direct setup is not available here";
+          status(check, `${reason} – use the local helper.`, "warn");
+          pill.textContent = "Direct setup unavailable";
           pill.dataset.kind = "warn";
+          $("helper-pill").textContent = reason;
           scanBtn.disabled = true;
-          status(scanStatus, "Home Assistant has no Wi-Fi interface – use the helper below.", "warn");
+          status(scanStatus, "Direct setup unavailable on this host.", "warn");
         }
       } catch (e) {
-        pill.textContent = "Wi-Fi status unavailable";
+        apcard.hidden = true;
+        helper.hidden = false;
+        status(check, "Network check failed – use the local helper.", "warn");
+        pill.textContent = "Check unavailable";
         pill.dataset.kind = "warn";
-        status(scanStatus, "Cannot check Wi-Fi. Open this page from the add-on panel.", "warn");
+        $("helper-pill").textContent = "Cannot check Home Assistant network";
+        scanBtn.disabled = true;
       }
     }
 
