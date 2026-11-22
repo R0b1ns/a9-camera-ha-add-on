@@ -398,24 +398,32 @@
       const preview = el.querySelector(".preview");
       const img = el.querySelector("img");
       const playBtn = el.querySelector(".play");
-      let stop = null;
-      function liveEnded() {
-        stop = null;
-        preview.classList.remove("live");
-        img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
-      }
-      function toggleLive() {
-        if (stop) { stop(); return; }
-        stop = play(img, cam.uid, liveEnded);
-        // The play triangle is hidden by .preview.live while the stream runs.
-        preview.classList.add("live");
-      }
-      playBtn.onclick = toggleLive;
+      // cam.streaming from /dev/list is authoritative: a stream started through
+      // a direct link shows as LIVE here too. Local playback is tracked as well,
+      // so the card can display video as soon as we subscribe ourselves.
+      const live = {
+        server: !!cam.streaming,
+        stop: null,
+        sync() { preview.classList.toggle("live", !!this.stop || this.server); },
+        ended() {
+          this.stop = null;
+          this.sync();
+          if (!this.server) img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
+        },
+        toggle() {
+          if (this.stop) { this.stop(); return; }
+          this.stop = play(img, cam.uid, () => this.ended());
+          this.sync();
+        },
+      };
+      live.sync();
+      el._live = live;
+      playBtn.onclick = () => live.toggle();
       // A click anywhere on the preview plays/stops. The overlay buttons keep
       // their own handlers, so clicking them must not toggle the stream.
       preview.onclick = e => {
         if (e.target.closest(".play, .snap-btn, .flip-btn")) return;
-        toggleLive();
+        live.toggle();
       };
       el.querySelectorAll(".toggle").forEach(t => {
         t.onchange = () => {
@@ -532,6 +540,9 @@
           document.getElementById("cams").appendChild(cards[cam.uid]);
         }
         const c = cards[cam.uid];
+        // Reflect streams started elsewhere (direct link, other client) as well.
+        c._live.server = !!cam.streaming;
+        c._live.sync();
         c.querySelector(".host").textContent = cam.host;
         const version = cam.info && cam.info.version;
         const fw = c.querySelector(".fw");
