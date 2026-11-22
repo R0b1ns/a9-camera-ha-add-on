@@ -29,7 +29,7 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - `main`: Version 3.2.8 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
   neuem AP-Setup-UI und lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den
   Default-Branch `main`; vorher zog es das dbuezas-v3.1.7-Image).
-  `fork/main`: 3.2.30, gepusht (Sicherheitshärtung + Wi-Fi-AP-Fix).
+  `fork/main`: 3.2.31, gepusht (Sicherheitshärtung, Wi-Fi-AP-Fix + Reboot nach Setup).
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -207,6 +207,12 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   `Device.SendCommand` speichert diese Werte aus Commands,
   `Device.ApplySettings()` sendet sie beim Verbinden erneut (`server.go`).
   So überleben LED/Flip einen Reboot der Kamera.
+- **Geändert in `2c62dbb` (3.2.31):** `apSetWiFi` sendet nach der bestätigten `code 204` jetzt auch
+  `code 299` (Reboot) über AP-TCP `6123`. Die Kamera speicherte die WLAN-Daten nur und blieb im
+  AP-Mode, daher kam trotz Erfolgsmeldung kein Wechsel ins Heim-WLAN. Die 502/204-Antwort wird jetzt
+  validiert (code + status 0/200), bevor Erfolg gemeldet wird. `apAddress` ist testbar var;
+  Regressionstest `TestAPSetWiFiSendsReboot` mit Fake-AP. Referenz: `a9-v702/fakecloud/ap_client.py`
+  ruft nach `set_wifi()` explizit `reboot()`.
 - **Geändert in `4d2f8bb` (3.2.30):** `supervisorConnectWiFi` sendet jetzt `enabled: true` und
   `ipv4: {method: auto}`. Vorher blieb ein via `disconnectWiFi` deaktiviertes WLAN-Interface aus
   bzw. bekam per Supervisor-Default `static` keine Adresse vom Kamera-AP → „camera AP did not assign

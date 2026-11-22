@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.2.31
+
+- Fix: direct Wi-Fi setup now sends a reboot command (`code 299`) after the camera accepted the new
+  SSID and password. Previously the camera only stored the settings, stayed in AP mode and never
+  applied them, while the UI already showed success. The set-wifi reply is now validated, so a
+  rejected change no longer reports success either.
+
 ## 3.2.30
 
 - Fix: direct Wi-Fi setup now enables the Wi-Fi interface and requests DHCP. Without `enabled: true`
