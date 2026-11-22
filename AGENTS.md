@@ -29,7 +29,7 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - `main`: Version 3.2.8 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
   neuem AP-Setup-UI und lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den
   Default-Branch `main`; vorher zog es das dbuezas-v3.1.7-Image).
-  `fork/main`: 3.2.32, gepusht (Sicherheitshärtung, Wi-Fi-AP-Fix + Reboot in UI und Helper).
+  `fork/main`: 3.2.33, gepusht (Sicherheitshärtung, Wi-Fi-AP-Fix + Reboot in UI und Helper).
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -207,9 +207,12 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   `Device.SendCommand` speichert diese Werte aus Commands,
   `Device.ApplySettings()` sendet sie beim Verbinden erneut (`server.go`).
   So überleben LED/Flip einen Reboot der Kamera.
-- **Geändert in `81bc09b` (3.2.32):** Auch `server/web/helper/a9-wifi-setup.py` sendet nach der
-  geprüften 204-Antwort `code 299` (Reboot) und meldet nur dann Erfolg. Mit `python3 -m py_compile`
-  geprüft (kein Install).
+- **Geändert in `81bc09b`/`668be5d` (3.2.32/33):** Auch `server/web/helper/a9-wifi-setup.py` sendet
+  nach der geprüften 204-Antwort `code 299` (Reboot) und meldet nur dann Erfolg. **Falle:** beim
+  ersten Edit war das `sendall` des Set-Wifi-Kommandos weggefallen; lokaler End-to-End-Test gegen
+  eine Fake-Kamera (204+299 im Protokoll) und der `.command`-Launcher fingen das. `.bat` nur statisch
+  prüfbar (kein Windows). Helper-Test temporär in `/private/var/folders/.../opencode/a9_helper_test.py`,
+  nicht im Repo (HOST/PORT sind im Helper hart codiert).
 - **Geändert in `2c62dbb` (3.2.31):** `apSetWiFi` sendet nach der bestätigten `code 204` jetzt auch
   `code 299` (Reboot) über AP-TCP `6123`. Die Kamera speicherte die WLAN-Daten nur und blieb im
   AP-Mode, daher kam trotz Erfolgsmeldung kein Wechsel ins Heim-WLAN. Die 502/204-Antwort wird jetzt

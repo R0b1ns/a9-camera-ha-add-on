@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.2.33
+
+- Fix: the standalone helper sends the Wi-Fi command again before waiting for its reply. Version
+  3.2.32 accidentally dropped that send while adding the reply check, so the helper could never
+  configure a camera. Verified end to end against a local fake camera AP, including the
+  `.command` launcher.
+
 ## 3.2.32
 
 - Fix: the standalone Wi-Fi helper (`a9-wifi-setup.py`) now sends the reboot command as well, so the
