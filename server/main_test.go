@@ -96,6 +96,7 @@ func TestHTTPHomepage(t *testing.T) {
 	res.Body.Close()
 	require.Equal(t, 200, res.StatusCode)
 	require.Contains(t, string(b), "<title>A9 Cameras</title>")
+	require.Contains(t, string(b), "<h1>Cameras</h1>")
 }
 
 func TestHTTPSnapshot(t *testing.T) {
