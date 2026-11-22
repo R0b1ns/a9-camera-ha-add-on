@@ -29,7 +29,7 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - `main`: Version 3.2.8 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
   neuem AP-Setup-UI und lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den
   Default-Branch `main`; vorher zog es das dbuezas-v3.1.7-Image).
-  `fork/main`: 3.2.22, gepusht; 3.2.23 steht zum Push an.
+  `fork/main`: 3.2.23, gepusht; 3.2.24 steht zum Push an.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -183,6 +183,11 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   `preview.onclick` mit `toggleLive()` – Klick auf die ganze Bildfläche
   startet/stoppt; `.play/.snap-btn/.flip-btn` werden per `closest()` ausgenommen.
   `.preview img` hat jetzt immer `cursor:pointer`.
+- **Geändert in `b2ebed1` (3.2.24):** Die LIVE-Anzeige kommt jetzt aus
+  `cam.streaming` (`/dev/list`, `server/main.go`) statt nur aus dem lokalen
+  Klick. Pro Karte gibt es ein `live`-Objekt mit `server`, `stop`, `sync()`,
+  `ended()`, `toggle()` an `el._live`; `update()` setzt `server` alle 2 s.
+  So leuchtet LIVE auch bei Streams von Direktlinks/anderen Clients.
 - Weiterhin bewusst: `8556/tcp` ist jetzt standardmäßig leer (RTSP aus),
   damit auch RTSP nicht ungeschützt im Netzwerk liegt. Wer go2rtc nutzt,
   muss den Port in den Add-on-Netzwerkoptionen aktivieren.

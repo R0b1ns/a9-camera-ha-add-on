@@ -14,8 +14,10 @@ The cameras connect to it instead of China, and it serves their video and audio 
 4. Restart the cameras, or wait. After a server restart a camera can take up to about 10 minutes to
    come back.
 5. Open the add-on web UI from the add-on panel in Home Assistant (Ingress). Each connected camera
-   shows up as a card with a live preview; the play triangle in the middle starts the stream and
-   disappears while it runs. The camera icon in the lower left opens the current snapshot in a
+   shows up as a card with a live preview; clicking anywhere on the image starts the stream and
+   clicking again stops it. The **LIVE** badge uses the server's real stream state, so it also lights
+   up when the stream was started through a direct link or another client. The play triangle is only
+   a hint while stopped. The camera icon in the lower left opens the current snapshot in a
    dialog (and lets you download it) without leaving the page – opening an Ingress URL in a new tab
    would get a 401 because that tab has no Home Assistant ingress session. Its URLs are
    grouped under **Streams**, while **Controls** has switches for IR LED, status LED and image flip

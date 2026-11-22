@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.24
+
+- Change: the **LIVE** badge now follows the server's real stream state from `/dev/list`. It also
+  lights up when the stream was started through a direct link or another client, not only by a click
+  in the web UI.
+
 ## 3.2.23
 
 - Change: clicking anywhere on the camera preview now starts or stops the stream. The play triangle
