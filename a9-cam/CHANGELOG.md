@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.11
+
+- Change: the overview shows "Cameras: N" as muted text below the title and
+  `DNS-Rewrite <domain> => <ip> ✓` instead of status badges. The HA Wi-Fi badge is gone.
+
 ## 3.2.10
 
 - Change: the new-camera page now checks the host itself (`/api/status`: `lan_connected`,
