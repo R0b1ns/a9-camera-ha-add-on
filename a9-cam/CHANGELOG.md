@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.25
+
+- Change: removed the duplicate "Flip image" switch from **Controls**. The icon in the top right of
+  the preview is now the only control for the image orientation and stays in sync with the camera.
+
 ## 3.2.24
 
 - Change: the **LIVE** badge now follows the server's real stream state from `/dev/list`. It also

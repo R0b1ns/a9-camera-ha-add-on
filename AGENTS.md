@@ -29,7 +29,7 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - `main`: Version 3.2.8 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
   neuem AP-Setup-UI und lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den
   Default-Branch `main`; vorher zog es das dbuezas-v3.1.7-Image).
-  `fork/main`: 3.2.23, gepusht; 3.2.24 steht zum Push an.
+  `fork/main`: 3.2.24, gepusht; 3.2.25 steht zum Push an.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -188,6 +188,10 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   Klick. Pro Karte gibt es ein `live`-Objekt mit `server`, `stop`, `sync()`,
   `ended()`, `toggle()` an `el._live`; `update()` setzt `server` alle 2 s.
   So leuchtet LIVE auch bei Streams von Direktlinks/anderen Clients.
+- **Geändert in `0fa6348` (3.2.25):** Der „Flip image"-Switch unter „Controls"
+  ist entfernt. `.flip-btn` oben rechts ist jetzt alleinige Steuerung; sein
+  Zustand kommt aus `cam.info.mirrorFlip`, mit 5-s-`data-pending` gegen
+  Zurückspringen. Commands unverändert (`code=216&mirrorFlip=4/0`).
 - Weiterhin bewusst: `8556/tcp` ist jetzt standardmäßig leer (RTSP aus),
   damit auch RTSP nicht ungeschützt im Netzwerk liegt. Wer go2rtc nutzt,
   muss den Port in den Add-on-Netzwerkoptionen aktivieren.
