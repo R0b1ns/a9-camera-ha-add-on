@@ -34,8 +34,17 @@ skip the login form.
 
 Port 80 serves only the cameras' cloud API, so old links without a port (for example
 `http://HA_IP/dev/.../snapshot`) no longer expose video to the whole network. Always use port 8557.
-The add-on page shows the full direct URLs again, with buttons to open MJPEG and snapshot; the first
-open asks for the Home Assistant login.
+The add-on page shows the full direct URLs as text; the first open asks for the Home Assistant login.
+
+Each camera card has two switches under **Streams**:
+
+- **Network access** (default on): when off, the direct links are hidden in the UI and anonymous
+  requests to them are rejected with HTTP 403.
+- **Password required** (default on): when off, only that camera's `/dev/CAMERA_ID/live` and
+  `/dev/CAMERA_ID/snapshot` work without a login. The web UI and the integration API always require
+  the Home Assistant login. Ingress and local requests are unaffected by both switches.
+
+The switches are stored per camera in `/data/access.json`.
 
 If your setup sends ingress traffic from a different address (for example a reverse proxy), add that
 network to the `ui_allowed_cidrs` option, e.g. `192.168.1.0/24`. Those addresses are treated as already

@@ -29,7 +29,7 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - `main`: Version 3.2.8 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
   neuem AP-Setup-UI und lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den
   Default-Branch `main`; vorher zog es das dbuezas-v3.1.7-Image).
-  `fork/main`: 3.2.18, gepusht; 3.2.19 steht zum Push an.
+  `fork/main`: 3.2.19, gepusht; 3.2.20 steht zum Push an.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -155,6 +155,17 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - **Geändert in `2d6bfb4` (3.2.19):** Play-Dreieck ohne Kreis, nur bei gestopptem
   Stream sichtbar (`.preview.live .play { display:none }`); Snapshot jetzt als
   `.snap-btn`-Kamera-Icon links unten im Bild statt als Button in „Controls“.
+- **Geändert in `216df84` (3.2.20):** `<h1>` jetzt nur noch „Cameras" unter dem
+  Eyebrow „A9 Camera · Overview" (`<title>` bleibt „A9 Cameras").
+- **Neu in `550e325` / `c9d5413` (3.2.20):** Pro-Kamera-Zugriffsschalter
+  `network_access` und `password_required` (beide Default `true`), gespeichert in
+  `/data/access.json` (`server/access.go`). `authMiddleware` prüft nur die Pfade
+  `/dev/<uid>/live` und `/dev/<uid>/snapshot`: bei `network_access == false`
+  403, bei `password_required == false` ohne Login durchgelassen. Alle anderen
+  Pfade (UI, API) bleiben geschützt; Ingress/Loopback/session immer erlaubt.
+  Neuer Endpunkt `POST /api/devices/{uid}/access`, Felder auch in `GET /dev/list`.
+  Die Karten zeigen die Schalter unter „Streams" und blenden die HTTP-Links aus,
+  wenn Network Access aus ist.
 - Weiterhin bewusst: `8556/tcp` ist jetzt standardmäßig leer (RTSP aus),
   damit auch RTSP nicht ungeschützt im Netzwerk liegt. Wer go2rtc nutzt,
   muss den Port in den Add-on-Netzwerkoptionen aktivieren.

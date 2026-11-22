@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.2.20
+
+- New: each camera card has a **Network access** switch (default on) that hides the direct links and
+  blocks anonymous access to them when off, and a **Password required** switch (default on). With the
+  password off, only that camera's MJPEG and snapshot URLs work without a login; the web UI stays
+  protected. Settings are saved in `/data/access.json`.
+- Change: the page heading is now just "Cameras" below the "A9 Camera · Overview" eyebrow.
+
 ## 3.2.19
 
 - Change: the play triangle is only shown while the stream is stopped and is now a plain icon
