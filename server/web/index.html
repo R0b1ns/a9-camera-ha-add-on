@@ -60,6 +60,11 @@
     .btn:focus-visible, .btn-add:focus-visible, input:focus-visible { outline: 2px solid var(--accent);
       outline-offset: 2px; }
     .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn:disabled .spinner { opacity: 1; }
+    .spinner { display: inline-block; width: 12px; height: 12px; flex: none;
+      border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+      animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
     .btn.primary:hover { color: #fff; filter: brightness(1.08); }
     .btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
@@ -494,8 +499,43 @@
           }).catch(() => {});
         };
       });
-      el.querySelectorAll("button[data-q]").forEach(b =>
-        b.onclick = () => fetch(rel(`dev/${cam.uid}/cmd?${b.dataset.q}`)));
+      el.querySelectorAll("button[data-q]").forEach(b => {
+        if (!b.dataset.q.includes("reboot")) {
+          b.onclick = () => fetch(rel(`dev/${cam.uid}/cmd?${b.dataset.q}`));
+          return;
+        }
+        let since = null;
+        let clickedAt = 0;
+        const reset = () => {
+          since = null;
+          b.disabled = false;
+          b.textContent = "Reboot";
+          b.title = "";
+        };
+        b.onclick = async () => {
+          if (b.disabled) return;
+          b.disabled = true;
+          b.innerHTML = `<span class="spinner" aria-hidden="true"></span> Rebooting…`;
+          since = cam.connected_at;
+          clickedAt = Date.now();
+          try {
+            const res = await fetch(rel(`dev/${cam.uid}/cmd?${b.dataset.q}`));
+            if (!res.ok) throw new Error(res.status);
+          } catch (e) {
+            b.textContent = "Reboot";
+            b.title = `Reboot failed: ${e.message}`;
+            setTimeout(reset, 2000); // let the user retry if nothing was sent
+            return;
+          }
+          // Normally the card is rebuilt when the camera reconnects. This is
+          // only a fallback if the camera never drops from /dev/list.
+          setTimeout(() => {
+            if (since && Date.now() - clickedAt > 180000) reset();
+          }, 180000);
+        };
+        el._finishReboot = reset;
+        el._rebootSince = () => since;
+      });
       img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
       return el;
     }
@@ -578,6 +618,10 @@
           document.getElementById("cams").appendChild(cards[cam.uid]);
         }
         const c = cards[cam.uid];
+        // A new connected_at means the camera came back after the reboot.
+        if (c._rebootSince && c._rebootSince() && cam.connected_at !== c._rebootSince()) {
+          c._finishReboot();
+        }
         // Mirror streams started elsewhere (direct link, other client) too.
         c._live.refresh(cam);
         c.querySelector(".host").textContent = cam.host;

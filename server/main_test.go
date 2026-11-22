@@ -799,6 +799,7 @@ func TestHTTPIndexHTML(t *testing.T) {
 	require.Contains(t, string(b), `class="flip-btn"`)
 	require.Contains(t, string(b), "cam.streaming")
 	require.Contains(t, string(b), "cam.external_streaming")
+	require.Contains(t, string(b), "Rebooting")
 	require.NotContains(t, string(b), `data-key="mirrorFlip"`)
 	require.Contains(t, string(b), "Streams")
 	require.Contains(t, string(b), "Controls")
