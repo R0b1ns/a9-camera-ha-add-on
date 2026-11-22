@@ -443,11 +443,21 @@
         fetch(rel(`dev/${cam.uid}/cmd?${on ? "code=216&mirrorFlip=4" : "code=216&mirrorFlip=0"}`))
           .catch(() => {});
       };
+      // Without network access there is nothing to protect with a password:
+      // external requests are rejected with 403 anyway.
+      const netSwitch = el.querySelector('.access[data-access="network_access"]');
+      const pwdRow = el.querySelector('.access[data-access="password_required"]').closest(".switch-row");
+      function syncAccess() {
+        // The password switch only matters while the direct links are reachable.
+        pwdRow.hidden = !netSwitch.checked;
+      }
+      el._syncAccess = syncAccess;
       el.querySelectorAll(".access").forEach(t => {
         t.onchange = () => {
           const body = {};
           el.querySelectorAll(".access").forEach(x => { body[x.dataset.access] = x.checked; });
           t.dataset.pending = String(Date.now() + 5000);
+          syncAccess();
           fetch(rel(`api/devices/${encodeURIComponent(cam.uid)}/access`), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -564,6 +574,7 @@
           const value = cam[t.dataset.access];
           if (typeof value === "boolean") t.checked = value;
         });
+        c._syncAccess();
         const net = cam.network_access !== false;
         c.querySelector(".links").hidden = !net;
         c.querySelector(".links-off").hidden = net;
