@@ -103,7 +103,8 @@ Ingress or localhost). The web UI has buttons for these:
 
 The infrared, status LED and flip settings are saved by the add-on in `/data/settings.json` and sent
 to the camera again whenever it connects, so a reboot (or a camera that reboots itself) does not reset
-them.
+them. After clicking **Reboot**, the button shows a spinner and stays disabled until the camera
+reconnects.
 
 ## Changing the camera's Wi-Fi
 

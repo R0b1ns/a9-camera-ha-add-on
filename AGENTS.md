@@ -29,7 +29,7 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - `main`: Version 3.2.8 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
   neuem AP-Setup-UI und lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den
   Default-Branch `main`; vorher zog es das dbuezas-v3.1.7-Image).
-  `fork/main`: 3.2.26, gepusht; 3.2.28 steht zum Push an.
+  `fork/main`: 3.2.28, gepusht; 3.2.29 steht zum Push an.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -207,6 +207,10 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   `Device.SendCommand` speichert diese Werte aus Commands,
   `Device.ApplySettings()` sendet sie beim Verbinden erneut (`server.go`).
   So überleben LED/Flip einen Reboot der Kamera.
+- **Geändert in `40ea7da` (3.2.29):** Reboot-Button wird bei Klick deaktiviert,
+  zeigt `.spinner` + „Rebooting…". `el._rebootSince()`/`_finishReboot()`
+  setzen ihn zurück, sobald `cam.connected_at` wechselt (Reconnect); 3-min-
+  Fallback und 2-s-Retry bei fehlgeschlagenem Request.
 - Weiterhin bewusst: `8556/tcp` ist jetzt standardmäßig leer (RTSP aus),
   damit auch RTSP nicht ungeschützt im Netzwerk liegt. Wer go2rtc nutzt,
   muss den Port in den Add-on-Netzwerkoptionen aktivieren.

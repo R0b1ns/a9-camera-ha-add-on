@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.29
+
+- Change: clicking **Reboot** now disables the button and shows a spinner. It becomes usable again
+  once the camera reconnects (with a fallback timeout and a retry after a failed request).
+
 ## 3.2.28
 
 - Fix: IR LED, status LED and image flip settings are now saved in `/data/settings.json` and sent to
