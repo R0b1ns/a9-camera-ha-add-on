@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.19
+
+- Change: the play triangle is only shown while the stream is stopped and is now a plain icon
+  without a circle. Snapshot moved to a small camera icon in the lower left of the preview.
+
 ## 3.2.18
 
 - Change: the firmware is now shown below the camera name as "Firmware <version>"; the IP address
