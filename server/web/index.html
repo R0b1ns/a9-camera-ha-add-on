@@ -92,6 +92,11 @@
       width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px;
       background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer; }
     .snap-btn svg { width: 18px; height: 18px; fill: currentColor; }
+    .flip-btn { position: absolute; right: 10px; top: 10px; display: grid; place-items: center;
+      width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px;
+      background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer; }
+    .flip-btn svg { width: 18px; height: 18px; fill: currentColor; }
+    .flip-btn.active { background: var(--accent); }
     .body { padding: 18px; }
     .card-head { display: flex; justify-content: space-between; align-items: flex-start;
       gap: 12px; margin-bottom: 16px; }
@@ -318,6 +323,9 @@
         <div class="preview">
           <img alt="" title="Click to stop the stream">
           <span class="live-tag"><span class="live-dot"></span>Live</span>
+          <button class="flip-btn" type="button" title="Flip image" aria-label="Flip image">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4v16l-8-8 8-8Zm2 0v16l8-8-8-8Z"/></svg>
+          </button>
           <button class="snap-btn" type="button" title="Snapshot" aria-label="Snapshot">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 7.5 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3.5L15 4H9Zm3 4.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Zm0 2a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/></svg>
           </button>
@@ -413,6 +421,17 @@
           fetch(rel(`dev/${cam.uid}/cmd?${q}`)).catch(() => {});
         };
       });
+      // The icon and the switch in Controls drive the same camera setting.
+      const flipBtn = el.querySelector(".flip-btn");
+      const flipSwitch = el.querySelector('.toggle[data-key="mirrorFlip"]');
+      flipBtn.onclick = () => {
+        const on = !flipSwitch.checked;
+        flipSwitch.checked = on;
+        flipSwitch.dataset.pending = String(Date.now() + 5000);
+        flipBtn.classList.toggle("active", on);
+        fetch(rel(`dev/${cam.uid}/cmd?${on ? flipSwitch.dataset.on : flipSwitch.dataset.off}`))
+          .catch(() => {});
+      };
       el.querySelectorAll(".access").forEach(t => {
         t.onchange = () => {
           const body = {};
@@ -522,6 +541,8 @@
             ? Number(value) !== 0
             : Number(value) === 1;
         });
+        c.querySelector(".flip-btn").classList.toggle("active",
+          c.querySelector('.toggle[data-key="mirrorFlip"]').checked);
         c.querySelectorAll(".access").forEach(t => {
           if (Date.now() < Number(t.dataset.pending || 0)) return;
           const value = cam[t.dataset.access];
