@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.10
+
+- Change: the new-camera page now checks the host itself (`/api/status`: `lan_connected`,
+  `wifi_connected`, `ap_ready`). It shows the direct "Connect the camera" form only when HA is on LAN
+  and its Wi-Fi is free; otherwise it shows the local helper with the reason.
+
 ## 3.2.9
 
 - Change: removed the redundant note about the camera AP having no password from the setup page.
