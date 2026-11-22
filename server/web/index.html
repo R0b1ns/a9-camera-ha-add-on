@@ -74,8 +74,8 @@
     .grid .card { transition: box-shadow .15s ease, transform .15s ease; }
     .grid .card:hover { box-shadow: 0 8px 24px rgba(20, 30, 45, .12); transform: translateY(-1px); }
     .preview { position: relative; background: #000; }
-    .preview img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #000; }
-    .preview.live img { cursor: pointer; }
+    .preview img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
+      background: #000; cursor: pointer; }
     .live-tag { position: absolute; top: 10px; left: 10px; display: none; align-items: center; gap: 6px;
       padding: 4px 9px; border-radius: 99px; background: rgba(0, 0, 0, .65); color: #fff;
       font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
@@ -321,7 +321,7 @@
       el.className = "card";
       el.innerHTML = `
         <div class="preview">
-          <img alt="" title="Click to stop the stream">
+          <img alt="" title="Click to play or stop the stream">
           <span class="live-tag"><span class="live-dot"></span>Live</span>
           <button class="flip-btn" type="button" title="Flip image" aria-label="Flip image">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4v16l-8-8 8-8Zm2 0v16l8-8-8-8Z"/></svg>
@@ -404,15 +404,19 @@
         preview.classList.remove("live");
         img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
       }
-      playBtn.onclick = () => {
+      function toggleLive() {
         if (stop) { stop(); return; }
         stop = play(img, cam.uid, liveEnded);
         // The play triangle is hidden by .preview.live while the stream runs.
         preview.classList.add("live");
+      }
+      playBtn.onclick = toggleLive;
+      // A click anywhere on the preview plays/stops. The overlay buttons keep
+      // their own handlers, so clicking them must not toggle the stream.
+      preview.onclick = e => {
+        if (e.target.closest(".play, .snap-btn, .flip-btn")) return;
+        toggleLive();
       };
-      // While streaming, a click on the image stops it (abort ends the stream
-      // and liveEnded restores the snapshot).
-      img.onclick = () => { if (stop) stop(); };
       el.querySelectorAll(".toggle").forEach(t => {
         t.onchange = () => {
           const q = t.checked ? t.dataset.on : t.dataset.off;
