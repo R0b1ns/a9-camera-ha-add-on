@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.22
+
+- New: a flip icon in the top right of the preview toggles the image orientation. It stays in sync
+  with the "Flip image" switch under Controls.
+
 ## 3.2.21
 
 - Change: clicking the preview image while a stream is running stops it and restores the snapshot.
