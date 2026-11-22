@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.16
+
+- Change: removed the redundant "N camera(s) connected" line below the header. The camera count is
+  now only shown once as "Cameras: N" under the title.
+
 ## 3.2.15
 
 - Change: the camera cards now use the same design system as the rest of the UI – shared colors,
