@@ -90,13 +90,13 @@
     .play:hover { transform: translate(-50%, -50%) scale(1.06); }
     .play svg { width: 24px; height: 24px; fill: currentColor; }
     .body { padding: 18px; }
-    .card-head { display: flex; justify-content: space-between; align-items: center;
+    .card-head { display: flex; justify-content: space-between; align-items: flex-start;
       gap: 12px; margin-bottom: 16px; }
+    .identity { min-width: 0; }
     .card-head h2 { overflow-wrap: anywhere; }
-    .meta { flex: none; display: flex; flex-wrap: wrap; align-items: center;
-      justify-content: flex-end; gap: 4px 8px; font-size: 12px; color: var(--muted); }
-    .host, .fw { white-space: nowrap; }
-    .fw { padding: 2px 7px; border-radius: 99px; background: var(--code); font-size: 11px; }
+    .meta { flex: none; font-size: 12px; color: var(--muted); text-align: right; }
+    .host { white-space: nowrap; }
+    .fw { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
     .section { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
     .card-head + .section { border-top: 0; padding-top: 0; margin-top: 0; }
     .section-title { margin-bottom: 9px; font-size: 11px; font-weight: 700; color: var(--muted);
@@ -149,7 +149,7 @@
       .head-actions .btn-add { flex: 1; }
       .grid { grid-template-columns: 1fr; }
       .card-head { flex-direction: column; align-items: flex-start; gap: 4px; }
-      .meta { justify-content: flex-start; }
+      .meta { text-align: left; }
     }
   </style>
 </head>
@@ -287,8 +287,8 @@
         </div>
         <div class="body">
           <div class="card-head">
-            <h2></h2>
-            <div class="meta"><span class="host"></span><span class="fw" hidden></span></div>
+            <div class="identity"><h2></h2><span class="fw" hidden></span></div>
+            <div class="meta"><span class="host"></span></div>
           </div>
           <div class="section">
             <div class="section-title">Streams</div>
@@ -438,7 +438,7 @@
         const version = cam.info && cam.info.version;
         const fw = c.querySelector(".fw");
         fw.hidden = !version;
-        fw.textContent = version ? String(version) : "";
+        fw.textContent = version ? `Firmware ${version}` : "";
         c.querySelectorAll(".toggle").forEach(t => {
           if (Date.now() < Number(t.dataset.pending || 0)) return;
           const value = cam.info && cam.info[t.dataset.key];
