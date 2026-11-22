@@ -89,8 +89,8 @@
     .play svg { width: 44px; height: 44px; fill: currentColor; }
     .preview.live .play { display: none; }
     .snap-btn { position: absolute; left: 10px; bottom: 10px; display: grid; place-items: center;
-      width: 32px; height: 32px; border-radius: 8px; background: rgba(0, 0, 0, .55);
-      color: #fff; text-decoration: none; }
+      width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px;
+      background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer; }
     .snap-btn svg { width: 18px; height: 18px; fill: currentColor; }
     .body { padding: 18px; }
     .card-head { display: flex; justify-content: space-between; align-items: flex-start;
@@ -140,6 +140,9 @@
     .modal .wifi-result[data-kind="ok"] { color: var(--ok); }
     .modal .wifi-result[data-kind="err"] { color: var(--err); }
     .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+    .snap-modal img { display: block; width: 100%; max-height: 68vh; object-fit: contain;
+      margin-top: 14px; border-radius: 8px; background: var(--code); }
+    .snap-modal img:not([src]) { display: none; }
     .empty { padding: 36px 22px; text-align: center; }
     .empty-icon { width: 44px; height: 44px; margin: 0 auto 14px; display: grid; place-items: center;
       border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-size: 21px; }
@@ -210,6 +213,22 @@
     </div>
   </dialog>
 
+  <dialog id="snap-modal" aria-labelledby="snap-modal-title">
+    <div class="modal snap-modal">
+      <div class="modal-head">
+        <div>
+          <h2 id="snap-modal-title">Snapshot</h2>
+          <p class="sub" id="snap-modal-cam"></p>
+        </div>
+        <button class="btn modal-close" id="snap-close" type="button" aria-label="Close">×</button>
+      </div>
+      <img id="snap-modal-img" alt="Snapshot">
+      <div class="modal-actions">
+        <button class="btn primary" id="snap-download" type="button">Download</button>
+      </div>
+    </div>
+  </dialog>
+
   <script>
     const host = location.hostname;
     // Resolve against the *directory* of this page: new URL(".", href) turns
@@ -232,6 +251,21 @@
     const wifiResult = document.getElementById("wifi-result");
     const wifiSend = document.getElementById("wifi-send");
     let wifiUID = null;
+
+    // Snapshots are fetched from inside the Ingress page and shown here instead
+    // of opening a new tab: a new tab has no HA ingress_session and gets a 401.
+    const snapModal = document.getElementById("snap-modal");
+    const snapModalImg = document.getElementById("snap-modal-img");
+    const snapModalCam = document.getElementById("snap-modal-cam");
+    document.getElementById("snap-close").onclick = () => snapModal.close();
+    snapModal.addEventListener("click", e => { if (e.target === snapModal) snapModal.close(); });
+    document.getElementById("snap-download").onclick = () => {
+      if (!snapModalImg.src) return;
+      const a = document.createElement("a");
+      a.href = snapModalImg.src;
+      a.download = "a9-snapshot.jpg";
+      a.click();
+    };
 
     function wifiStatus(text, kind = "") {
       wifiResult.textContent = text;
@@ -284,9 +318,9 @@
         <div class="preview">
           <img alt="" title="Click to stop the stream">
           <span class="live-tag"><span class="live-dot"></span>Live</span>
-          <a class="snap-btn" target="_blank" data-rel="snapshot" title="Snapshot" aria-label="Snapshot">
+          <button class="snap-btn" type="button" title="Snapshot" aria-label="Snapshot">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 7.5 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3.5L15 4H9Zm3 4.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Zm0 2a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/></svg>
-          </a>
+          </button>
           <button class="play" type="button" aria-label="Live">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
           </button>
@@ -335,7 +369,22 @@
       // Direct links keep working; authMiddleware sends unknown browsers to the HA login page.
       el.querySelector(".mjpeg").textContent = direct(`dev/${cam.uid}/live`);
       el.querySelector(".snap").textContent = direct(`dev/${cam.uid}/snapshot`);
-      el.querySelector('[data-rel="snapshot"]').href = rel(`dev/${cam.uid}/snapshot`);
+
+      el.querySelector(".snap-btn").onclick = async () => {
+        snapModalCam.textContent = cam.uid;
+        snapModalImg.removeAttribute("src");
+        snapModal.showModal();
+        try {
+          const res = await fetch(rel(`dev/${cam.uid}/snapshot`));
+          if (!res.ok) throw new Error(res.status);
+          const url = URL.createObjectURL(await res.blob());
+          if (snapModalImg.dataset.objectUrl) URL.revokeObjectURL(snapModalImg.dataset.objectUrl);
+          snapModalImg.dataset.objectUrl = url;
+          snapModalImg.src = url;
+        } catch (e) {
+          snapModalCam.textContent = `${cam.uid} · failed: ${e.message}`;
+        }
+      };
 
       el.querySelector(".wifi-open").onclick = () => openWiFi(cam.uid);
       const preview = el.querySelector(".preview");

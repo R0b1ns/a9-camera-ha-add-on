@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.2.21
+
+- Change: clicking the preview image while a stream is running stops it and restores the snapshot.
+- Fix: the camera icon now opens the snapshot in a dialog inside the page. Opening an Ingress URL in
+  a new tab returned 401 because that tab had no Home Assistant ingress session.
+- Fix: **Network access off** now blocks the direct links for external browsers even when they still
+  have a login session for port 8557. Ingress and local requests continue to work.
+
 ## 3.2.20
 
 - New: each camera card has a **Network access** switch (default on) that hides the direct links and

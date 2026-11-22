@@ -29,7 +29,7 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - `main`: Version 3.2.8 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
   neuem AP-Setup-UI und lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den
   Default-Branch `main`; vorher zog es das dbuezas-v3.1.7-Image).
-  `fork/main`: 3.2.19, gepusht; 3.2.20 steht zum Push an.
+  `fork/main`: 3.2.20, gepusht; 3.2.21 steht zum Push an.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -166,6 +166,16 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   Neuer Endpunkt `POST /api/devices/{uid}/access`, Felder auch in `GET /dev/list`.
   Die Karten zeigen die Schalter unter „Streams" und blenden die HTTP-Links aus,
   wenn Network Access aus ist.
+- **Geändert in `59c9f97` (3.2.21):** Klick auf das laufende Bild stoppt den
+  Stream (`img.onclick`), `.preview.live img` zeigt Pointer-Cursor.
+- **Geändert in 3.2.21:** Snapshot-Icon ist jetzt ein `<button>`, der das Bild
+  per `fetch` holt und in `#snap-modal` zeigt (Download-Button). Grund: eine
+  neue Tab mit Ingress-URL hat keine `ingress_session` → 401 von HA.
+- **Fix in 3.2.21:** `authMiddleware` prüft `network_access` jetzt **vor** der
+  Session (nur für nicht-trusted Sources). Vorher konnte ein alter
+  `a9cam_session`-Cookie auf `:8557` die Links trotz ausgeschaltetem
+  Network Access öffnen. Ingress/Loopback bleiben erlaubt, damit die UI ihre
+  Vorschau laden kann.
 - Weiterhin bewusst: `8556/tcp` ist jetzt standardmäßig leer (RTSP aus),
   damit auch RTSP nicht ungeschützt im Netzwerk liegt. Wer go2rtc nutzt,
   muss den Port in den Add-on-Netzwerkoptionen aktivieren.

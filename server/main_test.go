@@ -482,15 +482,16 @@ func TestCameraAccess(t *testing.T) {
 	require.Equal(t, http.StatusFound, call("/api/status", external).Code)
 	require.Equal(t, http.StatusFound, call("/dev/other/snapshot", external).Code)
 
-	// Network access off blocks anonymous use of the links.
+	// Network access off blocks the links from outside, even for a logged-in
+	// browser (the session is checked afterwards).
 	require.NoError(t, access.set("cam1", cameraAccess{NetworkAccess: false, PasswordRequired: false}))
+	cookie := &http.Cookie{Name: sessionCookie, Value: sessionValue(secret, "jane", time.Now().Add(time.Hour).Unix())}
 	require.Equal(t, http.StatusForbidden, call(link, external).Code)
+	require.Equal(t, http.StatusForbidden, call(link, external, cookie).Code)
 
-	// Ingress, loopback and logged-in HA users are unaffected by both switches.
+	// Ingress and loopback still work, so the UI can show its own preview.
 	require.Equal(t, http.StatusNoContent, call(link, "172.30.32.2:1234").Code)
 	require.Equal(t, http.StatusNoContent, call(link, "127.0.0.1:1234").Code)
-	cookie := &http.Cookie{Name: sessionCookie, Value: sessionValue(secret, "jane", time.Now().Add(time.Hour).Unix())}
-	require.Equal(t, http.StatusNoContent, call(link, external, cookie).Code)
 }
 
 func TestAccessEndpoint(t *testing.T) {
@@ -759,6 +760,7 @@ func TestHTTPIndexHTML(t *testing.T) {
 	require.Contains(t, string(b), `class="preview"`)
 	require.Contains(t, string(b), `class="play"`)
 	require.Contains(t, string(b), `class="snap-btn"`)
+	require.Contains(t, string(b), `id="snap-modal"`)
 	require.Contains(t, string(b), "Streams")
 	require.Contains(t, string(b), "Controls")
 	require.Contains(t, string(b), "Flip image")

@@ -15,7 +15,9 @@ The cameras connect to it instead of China, and it serves their video and audio 
    come back.
 5. Open the add-on web UI from the add-on panel in Home Assistant (Ingress). Each connected camera
    shows up as a card with a live preview; the play triangle in the middle starts the stream and
-   disappears while it runs. The camera icon in the lower left saves a snapshot. Its URLs are
+   disappears while it runs. The camera icon in the lower left opens the current snapshot in a
+   dialog (and lets you download it) without leaving the page – opening an Ingress URL in a new tab
+   would get a 401 because that tab has no Home Assistant ingress session. Its URLs are
    grouped under **Streams**, while **Controls** has switches for IR LED, status LED and image flip
    plus Reboot and Change Wi-Fi. You can also open the URLs directly on
    port 8557 after a one-time Home Assistant login (see **Access control**).
@@ -38,8 +40,9 @@ The add-on page shows the full direct URLs as text; the first open asks for the 
 
 Each camera card has two switches under **Streams**:
 
-- **Network access** (default on): when off, the direct links are hidden in the UI and anonymous
-  requests to them are rejected with HTTP 403.
+- **Network access** (default on): when off, the direct links are hidden in the UI and requests
+  from outside the host are rejected with HTTP 403 – even from a browser that logged in earlier.
+  Requests through Ingress or from the host itself still work, so the UI can show its preview.
 - **Password required** (default on): when off, only that camera's `/dev/CAMERA_ID/live` and
   `/dev/CAMERA_ID/snapshot` work without a login. The web UI and the integration API always require
   the Home Assistant login. Ingress and local requests are unaffected by both switches.

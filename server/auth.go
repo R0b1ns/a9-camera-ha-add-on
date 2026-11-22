@@ -97,20 +97,22 @@ func trustedSource(remoteAddr string) bool {
 // network entirely; the rest of the UI always needs the login.
 func authMiddleware(next http.Handler, secret []byte, enabled bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !enabled || r.URL.Path == "/login" || trustedSource(r.RemoteAddr) || validSession(r, secret) {
+		trusted := trustedSource(r.RemoteAddr)
+		uid, isDirectLink := directLinkUID(r.URL.Path)
+		// Network access is checked before the session: even a previously logged
+		// in browser must not reach a camera whose links were switched off.
+		// Ingress and loopback still work, so the UI can show its own preview.
+		if !trusted && isDirectLink && !access.get(uid).NetworkAccess {
+			http.Error(w, "network access is disabled for this camera", http.StatusForbidden)
+			return
+		}
+		if !enabled || r.URL.Path == "/login" || trusted || validSession(r, secret) {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if uid, ok := directLinkUID(r.URL.Path); ok {
-			ac := access.get(uid)
-			if !ac.NetworkAccess {
-				http.Error(w, "network access is disabled for this camera", http.StatusForbidden)
-				return
-			}
-			if !ac.PasswordRequired {
-				next.ServeHTTP(w, r)
-				return
-			}
+		if isDirectLink && !access.get(uid).PasswordRequired {
+			next.ServeHTTP(w, r)
+			return
 		}
 		target := r.URL.RequestURI()
 		http.Redirect(w, r, "/login?next="+url.QueryEscape(target), http.StatusFound)
