@@ -35,12 +35,12 @@
     .btn-add:hover { filter: brightness(1.08); color: #fff; }
     .btn-add svg { width: 14px; height: 14px; flex: none; }
     .muted { color: var(--muted); }
-    .badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
-    .badge { font-size: 12px; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line);
-      background: var(--card); color: var(--muted); }
-    .badge.ok { border-color: var(--ok); color: var(--ok); }
-    .badge.bad { border-color: var(--err); color: var(--err); }
-    .badge.warn { border-color: var(--warn); color: var(--warn); }
+    .cam-count { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+    .dns { margin: 10px 0; font-size: 13px; color: var(--muted); }
+    .dns .mark { margin-left: 6px; font-weight: 700; }
+    .dns[data-kind="ok"] .mark { color: var(--ok); }
+    .dns[data-kind="bad"] .mark { color: var(--err); }
+    .dns[data-kind="warn"] .mark { color: var(--warn); }
     .alert { margin: 10px 0; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--err);
       background: color-mix(in srgb, var(--err) 10%, var(--card)); color: var(--text); }
     .alert b { color: var(--err); }
@@ -76,18 +76,17 @@
 </head>
 <body>
   <header class="page-head">
-    <h1>A9 Cameras</h1>
+    <div>
+      <h1>A9 Cameras</h1>
+      <p class="cam-count" id="cam-count">Cameras: …</p>
+    </div>
     <a class="btn-add" data-rel="add" href="setup.html">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"
         stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       Add Camera
     </a>
   </header>
-  <div class="badges">
-    <span class="badge" id="badge-cams">Cameras: …</span>
-    <span class="badge" id="badge-dns">Cloud DNS: …</span>
-    <span class="badge" id="badge-wifi">Home Assistant WLAN: …</span>
-  </div>
+  <div class="dns" id="dns-line" data-kind="warn">DNS-Rewrite: …</div>
   <div id="alert"></div>
   <div class="muted" id="status">Loading…</div>
   <div class="grid" id="cams"></div>
@@ -230,12 +229,6 @@
       return () => ctrl.abort();
     }
 
-    function badge(id, text, cls) {
-      const el = document.getElementById(id);
-      el.textContent = text;
-      el.className = "badge" + (cls ? " " + cls : "");
-    }
-
     async function update() {
       let list, st;
       try {
@@ -250,15 +243,24 @@
         document.getElementById("status").textContent = "Server unreachable";
         document.getElementById("status").hidden = false;
         document.getElementById("empty").hidden = true;
+        document.getElementById("cam-count").textContent = "Cameras: –";
+        document.getElementById("dns-line").textContent = "DNS-Rewrite: unavailable";
+        document.getElementById("dns-line").dataset.kind = "warn";
         return;
       }
-      badge("badge-cams", `Cameras: ${list.length}`, list.length ? "ok" : "warn");
-      badge("badge-dns", st
-        ? (st.dns_ok ? "Cloud DNS: OK" : "Cloud DNS: WRONG")
-        : "Cloud DNS: unavailable", st ? (st.dns_ok ? "ok" : "bad") : "warn");
-      badge("badge-wifi", st
-        ? (st.wifi_available ? `HA WLAN: ${st.wifi_iface}` : "HA WLAN: none")
-        : "HA WLAN: unavailable", st && st.wifi_available ? "ok" : "warn");
+      document.getElementById("cam-count").textContent = `Cameras: ${list.length}`;
+      const dns = document.getElementById("dns-line");
+      if (st) {
+        dns.textContent = `DNS-Rewrite ${st.dns_name} => ${st.dns_ip || "unavailable"}`;
+        const mark = document.createElement("span");
+        mark.className = "mark";
+        mark.textContent = st.dns_ok ? "✓" : "✗";
+        dns.appendChild(mark);
+        dns.dataset.kind = st.dns_ok ? "ok" : "bad";
+      } else {
+        dns.textContent = "DNS-Rewrite: unavailable";
+        dns.dataset.kind = "warn";
+      }
       const alert = document.getElementById("alert");
       alert.innerHTML = st && !st.dns_ok ?
         `<div class="alert"><b>DNS redirect missing.</b> <code>${st.dns_name}</code> resolves to ` +
