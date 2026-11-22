@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"net/netip"
 	"os"
 	"strconv"
@@ -173,7 +174,9 @@ func routes() *http.ServeMux {
 	mux.HandleFunc("GET /dev/list", apiList)
 	mux.HandleFunc("GET /dev/{uid}/live", apiMJPEG)
 	mux.HandleFunc("GET /dev/{uid}/snapshot", apiSnapshot)
-	mux.HandleFunc("GET /dev/{uid}/cmd", apiCommand)
+	// Commands change camera state: POST only, so a cross-site GET cannot
+	// reboot a camera or reconfigure its Wi-Fi (CSRF).
+	mux.HandleFunc("POST /dev/{uid}/cmd", apiCommand)
 	mux.HandleFunc("GET /api/devices", apiDevices)
 	mux.HandleFunc("GET /api/status", apiStatus)
 	mux.HandleFunc("GET /api/wifi/accesspoints", apiAccessPoints)
@@ -186,6 +189,7 @@ func routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/devices/{uid}/wifi", apiWiFi)
 	mux.HandleFunc("GET /login", loginGET)
 	mux.HandleFunc("POST /login", loginPOST)
+	mux.HandleFunc("POST /logout", logoutPOST)
 	mux.HandleFunc("GET /setup.html", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFileFS(w, r, web, "web/setup.html")
 	})
@@ -315,6 +319,58 @@ func writeJPEG(w http.ResponseWriter, b []byte) {
 	_, _ = w.Write(b)
 }
 
+// allowedCameraCodes are the only commands the HTTP API may forward. Wi-Fi
+// (204) is deliberately absent: use /api/devices/{uid}/wifi or /api/wifi/configure-ap,
+// which validate the credentials and never write them to the log.
+var allowedCameraCodes = map[int]bool{201: true, 202: true, 210: true, 216: true, 220: true, 299: true}
+
+func commandCode(cmd a9.Obj) (int, bool) {
+	for _, kv := range cmd {
+		if kv.Key != "code" {
+			continue
+		}
+		switch v := kv.Value.(type) {
+		case int:
+			return v, true
+		case int64:
+			return int(v), true
+		case float64:
+			return int(v), true
+		case string:
+			n, err := strconv.Atoi(v)
+			return n, err == nil
+		}
+		return 0, false
+	}
+	return 0, false
+}
+
+func commandAllowed(cmd a9.Obj) bool {
+	code, ok := commandCode(cmd)
+	return ok && allowedCameraCodes[code]
+}
+
+// redactQuery keeps credentials out of the log if someone uses the generic
+// command endpoint with a Wi-Fi payload instead of the dedicated API.
+func redactQuery(raw string) string {
+	parts := strings.Split(raw, "&")
+	for i, part := range parts {
+		key, _, ok := strings.Cut(part, "=")
+		if !ok {
+			continue
+		}
+		key, err := url.QueryUnescape(key)
+		if err != nil {
+			continue
+		}
+		switch strings.ToLower(key) {
+		case "p", "psk", "password", "s", "ssid":
+			parts[i] = key + "=***"
+		}
+	}
+	return strings.Join(parts, "&")
+}
+
 // apiCommand forwards the query to the camera, in the same order, ex: ?code=202&IrLed=1
 func apiCommand(w http.ResponseWriter, r *http.Request) {
 	dev := server.Get(r.PathValue("uid"))
@@ -326,22 +382,31 @@ func apiCommand(w http.ResponseWriter, r *http.Request) {
 	var cmd a9.Obj
 	for _, pair := range strings.Split(r.URL.RawQuery, "&") {
 		k, v, _ := strings.Cut(pair, "=")
-		if k == "" {
+		key, err := url.QueryUnescape(k)
+		if err != nil || key == "" {
 			continue
 		}
-		var value any = v
-		if i, err := strconv.Atoi(v); err == nil {
-			value = i
+		value, err := url.QueryUnescape(v)
+		if err != nil {
+			continue
 		}
-		cmd = append(cmd, a9.KV{Key: k, Value: value})
+		var out any = value
+		if i, err := strconv.Atoi(value); err == nil {
+			out = i
+		}
+		cmd = append(cmd, a9.KV{Key: key, Value: out})
 	}
 	if len(cmd) == 0 {
 		http.Error(w, "empty command", http.StatusBadRequest)
 		return
 	}
+	if !commandAllowed(cmd) {
+		http.Error(w, "command code not allowed", http.StatusBadRequest)
+		return
+	}
 
 	dev.SendCommand(cmd)
-	log.Info().Str("uid", dev.UID).Msgf("[http] command %s", r.URL.RawQuery)
+	log.Info().Str("uid", dev.UID).Str("command", redactQuery(r.URL.RawQuery)).Msg("[http] command")
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(cmd)

@@ -55,9 +55,15 @@ Each camera card has two switches under **Streams**:
 
 The switches are stored per camera in `/data/access.json`.
 
+The Home Assistant login session lasts 24 hours. `POST /logout` clears the browser cookie; the
+signed token itself cannot be revoked before it expires. When the UI is reached over HTTPS, the
+cookie is marked `Secure`.
+
 If your setup sends ingress traffic from a different address (for example a reverse proxy), add that
 network to the `ui_allowed_cidrs` option, e.g. `192.168.1.0/24`. Those addresses are treated as already
-authenticated. The option extends the built-in allows; it never removes them.
+authenticated. The option extends the built-in allows; it never removes them. **Do not use broad
+ranges such as `0.0.0.0/0`**: every address listed here skips the login *and* both per-camera
+switches, including the Wi-Fi and command APIs.
 
 ## Streams
 
@@ -91,8 +97,10 @@ streams:
 
 ## Commands
 
-`http://HA_IP:8557/dev/CAMERA_ID/cmd?code=...` sends a command to the camera (only reachable through
-Ingress or localhost). The web UI has buttons for these:
+`POST http://HA_IP:8557/dev/CAMERA_ID/cmd?code=...` sends a command to the camera. A GET is rejected,
+so an external link cannot change camera state through a logged-in browser. Only the codes below are
+accepted; changing Wi-Fi (`code=204`) is reserved for the dedicated APIs. The web UI has buttons for
+these:
 
 | Command | URL query |
 | --- | --- |
@@ -175,7 +183,11 @@ The add-on uses the host network:
 | 80 | Cloud calls of the cameras only (see `camera_http_port`) |
 | 6123 TCP + UDP | Camera connection |
 | 8556 | RTSP, off by default |
-| 8557 | Web UI, MJPEG, snapshots, integration API, off by default (use Ingress) |
+| 8557 | Web UI, MJPEG, snapshots, integration API. Published on the host and protected by the HA login; prefer Ingress. |
+
+Port 8556 has no authentication at all. RTSP is off until you map that port, and anyone who can reach
+it can view every camera. Port 6123 (camera protocol) also has no authentication; keep it inside a
+trusted network.
 
 ## Reconnecting
 

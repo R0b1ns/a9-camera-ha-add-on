@@ -188,10 +188,11 @@ func TestHTTPMJPEGCameraGone(t *testing.T) {
 
 func TestHTTPCommand(t *testing.T) {
 	cam, uid, url := setup(t)
-	res, err := http.Get(url + "/dev/" + uid + "/cmd?code=202&IrLed=1")
+	res, err := http.Post(url+"/dev/"+uid+"/cmd?code=202&IrLed=1", "text/plain", nil)
 	require.NoError(t, err)
 	b, _ := io.ReadAll(res.Body)
 	res.Body.Close()
+	require.Equal(t, http.StatusOK, res.StatusCode)
 	require.JSONEq(t, `{"code":202,"IrLed":1}`, string(b))
 
 	select {
@@ -201,6 +202,27 @@ func TestHTTPCommand(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("no command")
 	}
+
+	// A GET cannot change camera state: SameSite cookies may accompany it.
+	getRes, err := http.Get(url + "/dev/" + uid + "/cmd?code=299&reboot=1")
+	require.NoError(t, err)
+	_ = getRes.Body.Close()
+	require.Equal(t, http.StatusMethodNotAllowed, getRes.StatusCode)
+
+	// Wi-Fi configuration (204) only belongs to the dedicated APIs.
+	wifiRes, err := http.Post(url+"/dev/"+uid+"/cmd?code=204&s=Evil&p=password123", "text/plain", nil)
+	require.NoError(t, err)
+	_ = wifiRes.Body.Close()
+	require.Equal(t, http.StatusBadRequest, wifiRes.StatusCode)
+}
+
+func TestCommandJSONRejectsWiFiCode(t *testing.T) {
+	_, uid, url := setup(t)
+	res, err := http.Post(url+"/api/devices/"+uid+"/command", "application/json",
+		strings.NewReader(`{"code":204,"s":"Evil","p":"password123"}`))
+	require.NoError(t, err)
+	_ = res.Body.Close()
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
 }
 
 func TestRTSP(t *testing.T) {
@@ -447,6 +469,61 @@ func TestAuthMiddleware(t *testing.T) {
 	openRec := httptest.NewRecorder()
 	authMiddleware(next, secret, false).ServeHTTP(openRec, httptest.NewRequest("GET", "/", nil))
 	require.Equal(t, http.StatusNoContent, openRec.Code)
+}
+
+func TestCrossOriginWritesRejected(t *testing.T) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	guard := authMiddleware(next, []byte("0123456789abcdef0123456789abcdef"), false)
+	call := func(origin, fetchSite string) int {
+		req := httptest.NewRequest("POST", "http://ha.example:8123/api/devices/cam1/access", nil)
+		if origin != "" {
+			req.Header.Set("Origin", origin)
+		}
+		if fetchSite != "" {
+			req.Header.Set("Sec-Fetch-Site", fetchSite)
+		}
+		rec := httptest.NewRecorder()
+		guard.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	require.Equal(t, http.StatusForbidden, call("https://evil.example", ""))
+	require.Equal(t, http.StatusForbidden, call("", "cross-site"))
+	require.Equal(t, http.StatusNoContent, call("https://ha.example:8123", "same-origin"))
+	require.Equal(t, http.StatusNoContent, call("", ""))
+}
+
+func TestSafeNextAndSessionCookie(t *testing.T) {
+	t.Setenv("SUPERVISOR_TOKEN", "test-token")
+	for _, good := range []string{"/", "/index.html", "/dev/x/live?raw"} {
+		require.True(t, safeNext(good), good)
+	}
+	for _, bad := range []string{"", "https://evil.example", "//evil.example",
+		"/\\evil.example", "/a\r\nX: 1", "/a\tb", "/a\x7f"} {
+		require.False(t, safeNext(bad), bad)
+	}
+
+	old := supervisorAuthURL
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	supervisorAuthURL = srv.URL
+	defer func() { supervisorAuthURL = old; srv.Close() }()
+
+	req := httptest.NewRequest("POST", "/login", strings.NewReader("username=jane&password=pw&next=%2F"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	loginPOST(rec, req)
+	require.Equal(t, http.StatusSeeOther, rec.Code)
+	cookies := rec.Result().Cookies()
+	require.Len(t, cookies, 1)
+	require.Equal(t, sessionCookie, cookies[0].Name)
+	require.True(t, cookies[0].HttpOnly)
+	require.Equal(t, http.SameSiteStrictMode, cookies[0].SameSite)
+	require.Equal(t, "/", cookies[0].Path)
+	require.False(t, cookies[0].Secure, "plain HTTP must not get a Secure cookie")
+	require.LessOrEqual(t, time.Until(cookies[0].Expires), 24*time.Hour)
 }
 
 func TestCameraAccess(t *testing.T) {

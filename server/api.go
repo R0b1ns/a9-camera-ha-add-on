@@ -59,13 +59,21 @@ func apiCommandJSON(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, a9.ErrNotConnected.Error(), http.StatusServiceUnavailable)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 8192)
 	cmd, err := decodeObj(r.Body)
 	if err != nil || len(cmd) == 0 {
 		http.Error(w, "body must be a JSON object with a code", http.StatusBadRequest)
 		return
 	}
+	if !commandAllowed(cmd) {
+		http.Error(w, "command code not allowed", http.StatusBadRequest)
+		return
+	}
 	dev.SendCommand(cmd)
-	log.Info().Str("uid", dev.UID).Msgf("[api] command %s", mustJSON(cmd))
+	// Log only the code: a caller could otherwise smuggle Wi-Fi credentials
+	// into the generic command endpoint.
+	code, _ := commandCode(cmd)
+	log.Info().Str("uid", dev.UID).Int("code", code).Msg("[api] command")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -447,6 +455,7 @@ func apiSettings(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Audio *bool `json:"audio"`
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Audio == nil {
 		http.Error(w, `body must be {"audio": true|false}`, http.StatusBadRequest)
 		return

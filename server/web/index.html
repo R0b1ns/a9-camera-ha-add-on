@@ -387,7 +387,7 @@
         snapModalImg.removeAttribute("src");
         snapModal.showModal();
         try {
-          const res = await fetch(rel(`dev/${cam.uid}/snapshot`));
+          const res = await fetch(rel(`dev/${encodeURIComponent(cam.uid)}/snapshot`));
           if (!res.ok) throw new Error(res.status);
           const url = URL.createObjectURL(await res.blob());
           if (snapModalImg.dataset.objectUrl) URL.revokeObjectURL(snapModalImg.dataset.objectUrl);
@@ -422,7 +422,7 @@
           this.stop = null;
           this.auto = false;
           this.sync();
-          img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
+          img.src = rel(`dev/${encodeURIComponent(cam.uid)}/snapshot?t=${Date.now()}`);
         },
         toggle() {
           if (this.stop) {
@@ -445,6 +445,10 @@
       };
       live.sync();
       el._live = live;
+      // Commands change camera state: POST only (a cross-site GET must not
+      // reboot a camera). The endpoint also rejects anything but known codes.
+      const sendCmd = q =>
+        fetch(rel(`dev/${encodeURIComponent(cam.uid)}/cmd?${q}`), { method: "POST" });
       playBtn.onclick = () => live.toggle();
       // A click anywhere on the preview plays/stops. The overlay buttons keep
       // their own handlers, so clicking them must not toggle the stream.
@@ -457,7 +461,7 @@
           const q = t.checked ? t.dataset.on : t.dataset.off;
           // Keep the new position until the camera reports its base info again.
           t.dataset.pending = String(Date.now() + 5000);
-          fetch(rel(`dev/${cam.uid}/cmd?${q}`)).catch(() => {});
+          sendCmd(q).catch(() => {});
         };
       });
       // The image icon is the only control for the camera orientation.
@@ -468,8 +472,7 @@
         flipBtn.classList.toggle("active", on);
         // Keep the new position until the camera reports its base info again.
         flipBtn.dataset.pending = String(Date.now() + 5000);
-        fetch(rel(`dev/${cam.uid}/cmd?${on ? "code=216&mirrorFlip=4" : "code=216&mirrorFlip=0"}`))
-          .catch(() => {});
+        sendCmd(on ? "code=216&mirrorFlip=4" : "code=216&mirrorFlip=0").catch(() => {});
       };
       // Without network access there is nothing to protect with a password:
       // external requests are rejected with 403 anyway.
@@ -501,7 +504,7 @@
       });
       el.querySelectorAll("button[data-q]").forEach(b => {
         if (!b.dataset.q.includes("reboot")) {
-          b.onclick = () => fetch(rel(`dev/${cam.uid}/cmd?${b.dataset.q}`));
+          b.onclick = () => sendCmd(b.dataset.q);
           return;
         }
         let since = null;
@@ -519,7 +522,7 @@
           since = cam.connected_at;
           clickedAt = Date.now();
           try {
-            const res = await fetch(rel(`dev/${cam.uid}/cmd?${b.dataset.q}`));
+            const res = await sendCmd(b.dataset.q);
             if (!res.ok) throw new Error(res.status);
           } catch (e) {
             b.textContent = "Reboot";
@@ -536,7 +539,7 @@
         el._finishReboot = reset;
         el._rebootSince = () => since;
       });
-      img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
+      img.src = rel(`dev/${encodeURIComponent(cam.uid)}/snapshot?t=${Date.now()}`);
       return el;
     }
 
@@ -548,7 +551,7 @@
       const dec = new TextDecoder();
       let url = null;
       (async () => {
-        const res = await fetch(rel(`dev/${uid}/live?raw`), { signal: ctrl.signal });
+        const res = await fetch(rel(`dev/${encodeURIComponent(uid)}/live?raw`), { signal: ctrl.signal });
         if (!res.ok) throw new Error(res.status);
         const reader = res.body.getReader();
         let buf = new Uint8Array(0);

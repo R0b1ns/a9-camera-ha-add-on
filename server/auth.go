@@ -91,12 +91,33 @@ func trustedSource(remoteAddr string) bool {
 	return false
 }
 
+// sameOrigin stops cross-site form posts. Browsers send Origin on POSTs; local
+// clients (the HA integration, curl) do not, so they keep working.
+func sameOrigin(r *http.Request) bool {
+	if strings.EqualFold(r.Header.Get("Sec-Fetch-Site"), "cross-site") {
+		return false
+	}
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return false
+	}
+	return strings.EqualFold(u.Host, r.Host)
+}
+
 // authMiddleware protects direct links to port 8557 with a Home Assistant login.
 // Ingress (Supervisor) and the local integration are already trusted. Per camera,
 // the two direct links can be opened without a password or blocked for the
 // network entirely; the rest of the UI always needs the login.
 func authMiddleware(next http.Handler, secret []byte, enabled bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead && !sameOrigin(r) {
+			http.Error(w, "cross-origin request rejected", http.StatusForbidden)
+			return
+		}
 		trusted := trustedSource(r.RemoteAddr)
 		uid, isDirectLink := directLinkUID(r.URL.Path)
 		// Network access is checked before the session: even a previously logged
@@ -137,23 +158,38 @@ func loginPOST(w http.ResponseWriter, r *http.Request) {
 	if !safeNext(next) {
 		next = "/"
 	}
+	w.Header().Set("Cache-Control", "no-store")
 	if !verifyHACredentials(user, password) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = io.WriteString(w, renderLogin(next, "Wrong Home Assistant user or password."))
 		return
 	}
-	expires := time.Now().Add(7 * 24 * time.Hour)
+	expires := time.Now().Add(24 * time.Hour)
+	// Direct port 8557 is plain HTTP; only mark the cookie Secure when the
+	// request arrived over TLS (or through a TLS reverse proxy).
+	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
 		Value:    sessionValue(sessionSecret, user, expires.Unix()),
 		Path:     "/",
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		Secure:   secure,
+		SameSite: http.SameSiteStrictMode,
 		Expires:  expires,
 		MaxAge:   int(time.Until(expires).Seconds()),
 	})
 	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+// logoutPOST clears the browser cookie. The HMAC token itself is stateless and
+// stays valid until it expires; there is no shared secret to revoke here.
+func logoutPOST(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name: sessionCookie, Value: "", Path: "/", HttpOnly: true,
+		MaxAge: -1, Expires: time.Unix(1, 0), SameSite: http.SameSiteStrictMode,
+	})
+	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 // verifyHACredentials asks the Supervisor to check the user against Home
@@ -182,7 +218,17 @@ func verifyHACredentials(user, password string) bool {
 }
 
 func safeNext(next string) bool {
-	return strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") && !strings.Contains(next, "\r") && !strings.Contains(next, "\n")
+	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") ||
+		strings.ContainsAny(next, "\\\r\n\t") {
+		return false
+	}
+	for _, r := range next {
+		if r < 0x20 || r == 0x7f {
+			return false
+		}
+	}
+	u, err := url.Parse(next)
+	return err == nil && u.Host == "" && u.Scheme == "" && u.User == nil
 }
 
 func htmlEscape(s string) string {
