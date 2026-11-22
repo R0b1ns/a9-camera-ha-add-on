@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.32
+
+- Fix: the standalone Wi-Fi helper (`a9-wifi-setup.py`) now sends the reboot command as well, so the
+  camera actually leaves AP mode there too. It also checks the reply before reporting success.
+
 ## 3.2.31
 
 - Fix: direct Wi-Fi setup now sends a reboot command (`code 299`) after the camera accepted the new
