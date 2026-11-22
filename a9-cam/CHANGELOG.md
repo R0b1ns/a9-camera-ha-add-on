@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.23
+
+- Change: clicking anywhere on the camera preview now starts or stops the stream. The play triangle
+  stays as a visual hint; the snapshot and flip icons keep their own actions.
+
 ## 3.2.22
 
 - New: a flip icon in the top right of the preview toggles the image orientation. It stays in sync
