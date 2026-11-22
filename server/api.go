@@ -394,6 +394,11 @@ func apiAccess(w http.ResponseWriter, r *http.Request) {
 	}
 	ac := access.get(uid)
 	if body.NetworkAccess != nil {
+		// When the direct links become reachable again, restore the safe
+		// default: a password is required unless turned off in a later request.
+		if *body.NetworkAccess && !ac.NetworkAccess {
+			ac.PasswordRequired = true
+		}
 		ac.NetworkAccess = *body.NetworkAccess
 	}
 	if body.PasswordRequired != nil {

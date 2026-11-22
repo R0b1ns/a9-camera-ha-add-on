@@ -214,6 +214,7 @@ func apiList(w http.ResponseWriter, _ *http.Request) {
 		Host             string         `json:"host"`
 		Port             int            `json:"port"`
 		Streaming        bool           `json:"streaming"`
+		ExternalStream   bool           `json:"external_streaming"`
 		Since            time.Time      `json:"connected_at"`
 		Info             map[string]any `json:"info,omitempty"`
 		NetworkAccess    bool           `json:"network_access"`
@@ -225,7 +226,9 @@ func apiList(w http.ResponseWriter, _ *http.Request) {
 		p, _ := strconv.Atoi(port)
 		ac := access.get(d.UID)
 		items = append(items, item{
-			UID: d.UID, Host: host, Port: p, Streaming: d.Streaming(), Since: d.ConnectedAt, Info: d.Info(),
+			UID: d.UID, Host: host, Port: p, Streaming: d.Streaming(),
+			ExternalStream: viewers.count(d.UID, false) > 0,
+			Since: d.ConnectedAt, Info: d.Info(),
 			NetworkAccess: ac.NetworkAccess, PasswordRequired: ac.PasswordRequired,
 		})
 	}
@@ -245,6 +248,10 @@ func apiMJPEG(w http.ResponseWriter, r *http.Request) {
 	}
 	defer stream.RemoveConsumer(cons)
 
+	raw := r.URL.Query().Has("raw")
+	viewers.add(uid, raw, 1)
+	defer viewers.add(uid, raw, -1)
+
 	log.Debug().Str("uid", uid).Str("addr", r.RemoteAddr).Msg("[http] mjpeg start")
 
 	h := w.Header()
@@ -255,7 +262,7 @@ func apiMJPEG(w http.ResponseWriter, r *http.Request) {
 	mw := mjpeg.NewWriter(w)
 	// ?raw: same body, but HA ingress compresses multipart and drops its boundary,
 	// so the web UI reads this type and splits the frames itself
-	if r.URL.Query().Has("raw") {
+	if raw {
 		h.Set("Content-Type", "application/octet-stream")
 	}
 	_, _ = cons.WriteTo(mw)

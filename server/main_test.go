@@ -518,6 +518,41 @@ func TestAccessEndpoint(t *testing.T) {
 	require.NotNil(t, found)
 	require.Equal(t, false, found["network_access"])
 	require.Equal(t, false, found["password_required"])
+
+	// Re-enabling the links restores the safe password default.
+	body = `{"network_access":true,"password_required":false}`
+	res3, err := http.Post(url+"/api/devices/"+uid+"/access", "application/json", strings.NewReader(body))
+	require.NoError(t, err)
+	defer res3.Body.Close()
+	require.Equal(t, http.StatusNoContent, res3.StatusCode)
+
+	res4, err := http.Get(url + "/dev/list")
+	require.NoError(t, err)
+	defer res4.Body.Close()
+	var list2 []map[string]any
+	require.NoError(t, json.NewDecoder(res4.Body).Decode(&list2))
+	var found2 map[string]any
+	for _, item := range list2 {
+		if item["uid"] == uid {
+			found2 = item
+		}
+	}
+	require.NotNil(t, found2)
+	require.Equal(t, true, found2["network_access"])
+	require.Equal(t, true, found2["password_required"])
+}
+
+func TestLiveViewers(t *testing.T) {
+	viewers = liveViewers{raw: map[string]int{}, link: map[string]int{}}
+	viewers.add("cam1", false, 1)
+	require.Equal(t, 1, viewers.count("cam1", false))
+	require.Equal(t, 0, viewers.count("cam1", true))
+	viewers.add("cam1", true, 1)
+	require.Equal(t, 1, viewers.count("cam1", true))
+	viewers.add("cam1", false, -1)
+	require.Equal(t, 0, viewers.count("cam1", false))
+	viewers.add("cam1", true, -1)
+	require.Equal(t, 0, viewers.count("cam1", true))
 }
 
 func TestLoginPage(t *testing.T) {
@@ -763,6 +798,7 @@ func TestHTTPIndexHTML(t *testing.T) {
 	require.Contains(t, string(b), `id="snap-modal"`)
 	require.Contains(t, string(b), `class="flip-btn"`)
 	require.Contains(t, string(b), "cam.streaming")
+	require.Contains(t, string(b), "cam.external_streaming")
 	require.NotContains(t, string(b), `data-key="mirrorFlip"`)
 	require.Contains(t, string(b), "Streams")
 	require.Contains(t, string(b), "Controls")
