@@ -184,9 +184,10 @@ func apiWiFiAP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cannot join camera AP", http.StatusBadGateway)
 		return
 	}
-	if !waitForCameraAPFunc(15 * time.Second) {
+	if !waitForCameraAPFunc(req.Iface, 30*time.Second) {
 		_ = disconnectWiFi(req.Iface)
-		http.Error(w, "camera AP did not assign an address", http.StatusGatewayTimeout)
+		http.Error(w, "Home Assistant did not get an address from the camera AP; "+
+			"check that the camera is in AP mode and its 2.4 GHz radio is on", http.StatusGatewayTimeout)
 		return
 	}
 	err = apSetWiFiFunc(req.SSID, req.Password)
@@ -206,13 +207,18 @@ func apiWiFiAP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func waitForCameraAP(timeout time.Duration) bool {
+// waitForCameraAP waits until HA owns an IPv4 address on iface and the camera
+// answers on its AP-mode TCP port. The address check avoids a false positive
+// from a route that exists only in the add-on container.
+func waitForCameraAP(iface string, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", apHost, apPort), time.Second)
-		if err == nil {
-			_ = conn.Close()
-			return true
+		if interfaceIPv4(iface) {
+			conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", apHost, apPort), time.Second)
+			if err == nil {
+				_ = conn.Close()
+				return true
+			}
 		}
 		time.Sleep(500 * time.Millisecond)
 	}

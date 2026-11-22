@@ -846,7 +846,7 @@ func TestWiFiAPFlowDisconnectsWiFi(t *testing.T) {
 		require.Equal(t, "newpassword", password)
 		return nil
 	}
-	waitForCameraAPFunc = func(time.Duration) bool { return true }
+	waitForCameraAPFunc = func(string, time.Duration) bool { return true }
 	defer func() { apSetWiFiFunc, waitForCameraAPFunc = oldSet, oldWait }()
 
 	body := `{"iface":"wlan0","ap_ssid":"NAXCLOW-1","ap_password":"apsecret",` +
@@ -859,6 +859,12 @@ func TestWiFiAPFlowDisconnectsWiFi(t *testing.T) {
 	defer mu.Unlock()
 	require.Len(t, posts, 2)
 
+	// The interface must be enabled and use DHCP; otherwise the camera AP
+	// cannot assign 192.168.169.x and the TCP probe times out.
+	require.Equal(t, true, posts[0]["enabled"])
+	ipv4, ok := posts[0]["ipv4"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "auto", ipv4["method"])
 	join, ok := posts[0]["wifi"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "NAXCLOW-1", join["ssid"])
@@ -898,7 +904,7 @@ func TestWiFiAPFlowJoinsOpenCameraAP(t *testing.T) {
 		require.Equal(t, "newpassword", password)
 		return nil
 	}
-	waitForCameraAPFunc = func(time.Duration) bool { return true }
+	waitForCameraAPFunc = func(string, time.Duration) bool { return true }
 	defer func() { apSetWiFiFunc, waitForCameraAPFunc = oldSet, oldWait }()
 
 	// The camera AP is open: the request has no ap_password.
@@ -910,6 +916,10 @@ func TestWiFiAPFlowJoinsOpenCameraAP(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	require.Len(t, posts, 2)
+	require.Equal(t, true, posts[0]["enabled"])
+	ipv4, ok := posts[0]["ipv4"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "auto", ipv4["method"])
 	join, ok := posts[0]["wifi"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "NAXCLOW-1", join["ssid"])

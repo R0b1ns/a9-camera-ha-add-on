@@ -133,12 +133,19 @@ type wifiConfig struct {
 
 // supervisorConnectWiFi joins an SSID. The wifi block replaces the whole
 // wireless config of that interface, so callers must restore the old SSID.
+// enabled:true is required because disconnectWiFi turns the interface off
+// again; ipv4:auto is required because the Supervisor defaults to static and
+// the camera AP can only hand out 192.168.169.x via DHCP.
 func supervisorConnectWiFi(iface string, wifi wifiConfig) error {
 	path, err := networkIfacePath(iface, "update")
 	if err != nil {
 		return err
 	}
-	_, err = supervisorRequest(http.MethodPost, path, map[string]any{"wifi": wifi})
+	_, err = supervisorRequest(http.MethodPost, path, map[string]any{
+		"enabled": true,
+		"wifi":    wifi,
+		"ipv4":    map[string]any{"method": "auto"},
+	})
 	return err
 }
 
