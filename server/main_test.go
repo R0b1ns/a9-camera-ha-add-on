@@ -486,10 +486,17 @@ func TestStatusEndpoint(t *testing.T) {
 	res, err := http.Get(url + "/api/status")
 	require.NoError(t, err)
 	defer res.Body.Close()
+	b, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
 	var st statusJSON
-	require.NoError(t, json.NewDecoder(res.Body).Decode(&st))
+	require.NoError(t, json.Unmarshal(b, &st))
 	require.Equal(t, "v720.naxclow.com", st.DNSName)
 	require.NotEmpty(t, st.LocalIPs)
+	var raw map[string]any
+	require.NoError(t, json.Unmarshal(b, &raw))
+	for _, key := range []string{"lan_connected", "wifi_connected", "ap_ready"} {
+		require.Contains(t, raw, key)
+	}
 }
 
 func TestAccessPointsEndpoint(t *testing.T) {
