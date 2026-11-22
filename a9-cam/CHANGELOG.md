@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.2.15
+
+- Change: the camera cards now use the same design system as the rest of the UI – shared colors,
+  radii, shadows and typography, a preview area with a Live indicator, and grouped
+  **Streams**/**Controls** sections. Live, Snapshot, commands and the Wi-Fi dialog still work as
+  before.
+
 ## 3.2.14
 
 - Change: the camera cards no longer show the Wi-Fi inputs permanently. A **Change Wi-Fi** button
