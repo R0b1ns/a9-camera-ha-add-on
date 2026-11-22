@@ -218,17 +218,21 @@
         else if (!st.lan_connected) reason = "No LAN connection detected in Home Assistant";
         const ready = !reason && st.ap_ready === true;
         apcard.hidden = !ready;
-        helper.hidden = ready;
+        // The helper stays available as an alternative even when direct setup works.
+        helper.hidden = false;
         if (ready) {
           status(check, "LAN connected, Wi-Fi free – direct setup available.", "ok");
           pill.textContent = `Wi-Fi ready · ${st.wifi_iface}`;
           pill.dataset.kind = "ok";
+          $("helper-pill").textContent = "Alternative";
+          $("helper-pill").dataset.kind = "";
         } else {
           reason = reason || "Direct setup is not available here";
           status(check, `${reason} – use the local helper.`, "warn");
           pill.textContent = "Direct setup unavailable";
           pill.dataset.kind = "warn";
           $("helper-pill").textContent = reason;
+          $("helper-pill").dataset.kind = "warn";
           scanBtn.disabled = true;
           status(scanStatus, "Direct setup unavailable on this host.", "warn");
         }
@@ -241,6 +245,7 @@
         pill.textContent = "Check unavailable";
         pill.dataset.kind = "warn";
         $("helper-pill").textContent = "Cannot check Home Assistant network";
+        $("helper-pill").dataset.kind = "warn";
         scanBtn.disabled = true;
       }
     }

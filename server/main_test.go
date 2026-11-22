@@ -672,6 +672,7 @@ func TestHTTPSetupPage(t *testing.T) {
 	require.Contains(t, string(b), "Add Camera")
 	require.Contains(t, string(b), "Keep the DNS rewrites in place")
 	require.Contains(t, string(b), "WPA2")
+	require.Contains(t, string(b), `id="helpercard"`)
 }
 
 func TestHTTPIndexHTML(t *testing.T) {
