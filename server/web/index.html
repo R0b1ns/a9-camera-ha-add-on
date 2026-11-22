@@ -82,13 +82,15 @@
     .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff5a52;
       box-shadow: 0 0 0 3px rgba(255, 90, 82, .25); }
     .play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-      display: grid; place-items: center; width: 52px; height: 52px; padding: 0;
-      border-radius: 50%; border: 1px solid rgba(255, 255, 255, .75);
-      background: rgba(0, 0, 0, .55); color: #fff; cursor: pointer; opacity: .85;
-      transition: opacity .15s ease, transform .15s ease; }
-    .preview:hover .play, .play:focus-visible { opacity: 1; }
-    .play:hover { transform: translate(-50%, -50%) scale(1.06); }
-    .play svg { width: 24px; height: 24px; fill: currentColor; }
+      display: block; width: 44px; height: 44px; padding: 0; border: 0; background: none;
+      color: #fff; cursor: pointer; filter: drop-shadow(0 1px 4px rgba(0, 0, 0, .7)); }
+    .play:hover { transform: translate(-50%, -50%) scale(1.08); }
+    .play svg { width: 44px; height: 44px; fill: currentColor; }
+    .preview.live .play { display: none; }
+    .snap-btn { position: absolute; left: 10px; bottom: 10px; display: grid; place-items: center;
+      width: 32px; height: 32px; border-radius: 8px; background: rgba(0, 0, 0, .55);
+      color: #fff; text-decoration: none; }
+    .snap-btn svg { width: 18px; height: 18px; fill: currentColor; }
     .body { padding: 18px; }
     .card-head { display: flex; justify-content: space-between; align-items: flex-start;
       gap: 12px; margin-bottom: 16px; }
@@ -280,9 +282,11 @@
         <div class="preview">
           <img alt="">
           <span class="live-tag"><span class="live-dot"></span>Live</span>
+          <a class="snap-btn" target="_blank" data-rel="snapshot" title="Snapshot" aria-label="Snapshot">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 7.5 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3.5L15 4H9Zm3 4.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Zm0 2a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/></svg>
+          </a>
           <button class="play" type="button" aria-label="Live">
-            <svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-            <svg class="stop-icon" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M6 6h12v12H6z"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
           </button>
         </div>
         <div class="body">
@@ -306,7 +310,6 @@
                 </label>`).join("")}
             </div>
             <div class="buttons">
-              <a class="btn" target="_blank" data-rel="snapshot">Snapshot</a>
               <button class="btn" data-q="code=299&amp;reboot=1">Reboot</button>
               <button class="btn wifi wifi-open">Change Wi-Fi</button>
             </div>
@@ -323,23 +326,16 @@
       const preview = el.querySelector(".preview");
       const img = el.querySelector("img");
       const playBtn = el.querySelector(".play");
-      const playIcon = el.querySelector(".play-icon");
-      const stopIcon = el.querySelector(".stop-icon");
       let stop = null;
       function liveEnded() {
         stop = null;
-        playIcon.hidden = false;
-        stopIcon.hidden = true;
-        playBtn.setAttribute("aria-label", "Live");
         preview.classList.remove("live");
         img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
       }
       playBtn.onclick = () => {
         if (stop) { stop(); return; }
         stop = play(img, cam.uid, liveEnded);
-        playIcon.hidden = true;
-        stopIcon.hidden = false;
-        playBtn.setAttribute("aria-label", "Stop");
+        // The play triangle is hidden by .preview.live while the stream runs.
         preview.classList.add("live");
       };
       el.querySelectorAll(".toggle").forEach(t => {

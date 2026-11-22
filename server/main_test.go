@@ -687,6 +687,7 @@ func TestHTTPIndexHTML(t *testing.T) {
 	require.Contains(t, string(b), `id="wifi-modal"`)
 	require.Contains(t, string(b), `class="preview"`)
 	require.Contains(t, string(b), `class="play"`)
+	require.Contains(t, string(b), `class="snap-btn"`)
 	require.Contains(t, string(b), "Streams")
 	require.Contains(t, string(b), "Controls")
 	require.Contains(t, string(b), "Flip image")

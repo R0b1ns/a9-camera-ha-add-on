@@ -14,9 +14,10 @@ The cameras connect to it instead of China, and it serves their video and audio 
 4. Restart the cameras, or wait. After a server restart a camera can take up to about 10 minutes to
    come back.
 5. Open the add-on web UI from the add-on panel in Home Assistant (Ingress). Each connected camera
-   shows up as a card with a live preview; the play button on the image starts and stops the stream.
-   Its URLs are grouped under **Streams**, while **Controls** has switches for IR LED, status LED
-   and image flip plus Snapshot, Reboot and Change Wi-Fi. You can also open the URLs directly on
+   shows up as a card with a live preview; the play triangle in the middle starts the stream and
+   disappears while it runs. The camera icon in the lower left saves a snapshot. Its URLs are
+   grouped under **Streams**, while **Controls** has switches for IR LED, status LED and image flip
+   plus Reboot and Change Wi-Fi. You can also open the URLs directly on
    port 8557 after a one-time Home Assistant login (see **Access control**).
 6. Optional but recommended: install the **A9 Camera** integration from HACS (same repository) and
    restart Home Assistant. It finds this add-on by itself and adds each camera as a device with a live
