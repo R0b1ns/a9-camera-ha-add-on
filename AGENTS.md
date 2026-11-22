@@ -29,7 +29,7 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
 - `main`: Version 3.2.8 mit Auth, Wi-Fi-Setup, Link-/UI-Fixes, Login-Fix,
   neuem AP-Setup-UI und lokalem Go-Build via `a9-cam/Dockerfile` (HA liest den
   Default-Branch `main`; vorher zog es das dbuezas-v3.1.7-Image).
-  `fork/main`: 3.2.10, gepusht; 3.2.11 steht zum Push an.
+  `fork/main`: 3.2.11, gepusht; 3.2.12 steht zum Push an.
 - `origin` ist der Upstream `dbuezas/a9-camera-ha-add-on` – **nie dorthin pushen**.
 - Der Feature-Branch `feature/secured-ui-wifi-setup` war vollständig in `main`
   gemergt (`f1847d0`) und wurde lokal und auf `fork` gelöscht. Kein PR geplant.
@@ -120,6 +120,11 @@ Fork von `dbuezas/a9-camera-ha-add-on` weiterentwickeln. Zwei Änderungen:
   lokale IP) und `ap_ready = LAN && WLAN vorhanden && !WLAN verbunden`.
   Nur bei `ap_ready` wird „Connect the camera“ gezeigt, sonst der Helfer
   mit Grund. `apiWiFiAP` lehnt aktives WLAN weiterhin mit 409 ab.
+- **Geändert in `d1f8a0b` (3.2.12):** Übersicht zeigt nur noch ein kompaktes
+  grünes Badge „DNS-Rewrite ✓“ in der Kopfzeile (Title links, Badge, „Add
+  Camera“ rechts); keine Domain/IP in der UI. Bei Fehler rotes Badge mit ✗
+  plus Alert. WLAN-Badge bleibt generell entfernt. `TestHTTPIndexHTML` prüft
+  das Badge.
 - Weiterhin bewusst: `8556/tcp` ist jetzt standardmäßig leer (RTSP aus),
   damit auch RTSP nicht ungeschützt im Netzwerk liegt. Wer go2rtc nutzt,
   muss den Port in den Add-on-Netzwerkoptionen aktivieren.

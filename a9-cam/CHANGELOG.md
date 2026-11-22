@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.12
+
+- Change: the overview header now shows a compact green **DNS-Rewrite ✓** badge next to the title
+  and the Add Camera button, instead of the domain/IP line.
+
 ## 3.2.11
 
 - Change: the overview shows "Cameras: N" as muted text below the title and
