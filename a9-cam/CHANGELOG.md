@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.2.18
+
+- Change: the firmware is now shown below the camera name as "Firmware <version>"; the IP address
+  sits alone on the right side of the card header.
+
 ## 3.2.17
 
 - Change: live video is started/stopped with a play/stop button directly on the camera preview; the
