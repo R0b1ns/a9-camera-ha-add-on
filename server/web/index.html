@@ -75,6 +75,7 @@
     .grid .card:hover { box-shadow: 0 8px 24px rgba(20, 30, 45, .12); transform: translateY(-1px); }
     .preview { position: relative; background: #000; }
     .preview img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #000; }
+    .preview.live img { cursor: pointer; }
     .live-tag { position: absolute; top: 10px; left: 10px; display: none; align-items: center; gap: 6px;
       padding: 4px 9px; border-radius: 99px; background: rgba(0, 0, 0, .65); color: #fff;
       font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
@@ -281,7 +282,7 @@
       el.className = "card";
       el.innerHTML = `
         <div class="preview">
-          <img alt="">
+          <img alt="" title="Click to stop the stream">
           <span class="live-tag"><span class="live-dot"></span>Live</span>
           <a class="snap-btn" target="_blank" data-rel="snapshot" title="Snapshot" aria-label="Snapshot">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 7.5 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3.5L15 4H9Zm3 4.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Zm0 2a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/></svg>
@@ -352,6 +353,9 @@
         // The play triangle is hidden by .preview.live while the stream runs.
         preview.classList.add("live");
       };
+      // While streaming, a click on the image stops it (abort ends the stream
+      // and liveEnded restores the snapshot).
+      img.onclick = () => { if (stop) stop(); };
       el.querySelectorAll(".toggle").forEach(t => {
         t.onchange = () => {
           const q = t.checked ? t.dataset.on : t.dataset.off;
