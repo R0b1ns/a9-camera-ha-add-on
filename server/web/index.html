@@ -104,6 +104,7 @@
     .section-title { margin-bottom: 9px; font-size: 11px; font-weight: 700; color: var(--muted);
       text-transform: uppercase; letter-spacing: .08em; }
     .field + .field { margin-top: 10px; }
+    .links-off { margin: 0; font-size: 13px; color: var(--muted); }
     .label { display: block; margin-bottom: 5px; font-size: 11px; font-weight: 600; color: var(--muted);
       text-transform: uppercase; letter-spacing: .05em; }
     code { display: block; background: var(--code); color: var(--text); padding: 8px 10px;
@@ -296,9 +297,22 @@
           </div>
           <div class="section">
             <div class="section-title">Streams</div>
-            <div class="field"><div class="label">RTSP (MJPEG + audio)</div><code class="rtsp"></code></div>
-            <div class="field"><div class="label">MJPEG</div><code class="mjpeg"></code></div>
-            <div class="field"><div class="label">Snapshot</div><code class="snap"></code></div>
+            <div class="switches">
+              <label class="switch-row"><span>Network access</span>
+                <input type="checkbox" class="access" data-access="network_access">
+                <span class="track" aria-hidden="true"></span>
+              </label>
+              <label class="switch-row"><span>Password required</span>
+                <input type="checkbox" class="access" data-access="password_required">
+                <span class="track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="links">
+              <div class="field"><div class="label">RTSP (MJPEG + audio)</div><code class="rtsp"></code></div>
+              <div class="field"><div class="label">MJPEG</div><code class="mjpeg"></code></div>
+              <div class="field"><div class="label">Snapshot</div><code class="snap"></code></div>
+            </div>
+            <p class="links-off" hidden>Direct links are disabled for this camera.</p>
           </div>
           <div class="section">
             <div class="section-title">Controls</div>
@@ -344,6 +358,18 @@
           // Keep the new position until the camera reports its base info again.
           t.dataset.pending = String(Date.now() + 5000);
           fetch(rel(`dev/${cam.uid}/cmd?${q}`)).catch(() => {});
+        };
+      });
+      el.querySelectorAll(".access").forEach(t => {
+        t.onchange = () => {
+          const body = {};
+          el.querySelectorAll(".access").forEach(x => { body[x.dataset.access] = x.checked; });
+          t.dataset.pending = String(Date.now() + 5000);
+          fetch(rel(`api/devices/${encodeURIComponent(cam.uid)}/access`), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          }).catch(() => {});
         };
       });
       el.querySelectorAll("button[data-q]").forEach(b =>
@@ -443,6 +469,14 @@
             ? Number(value) !== 0
             : Number(value) === 1;
         });
+        c.querySelectorAll(".access").forEach(t => {
+          if (Date.now() < Number(t.dataset.pending || 0)) return;
+          const value = cam[t.dataset.access];
+          if (typeof value === "boolean") t.checked = value;
+        });
+        const net = cam.network_access !== false;
+        c.querySelector(".links").hidden = !net;
+        c.querySelector(".links-off").hidden = net;
       }
       for (const uid of Object.keys(cards)) {
         if (!seen.has(uid)) { cards[uid].remove(); delete cards[uid]; }

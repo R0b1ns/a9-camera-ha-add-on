@@ -762,4 +762,6 @@ func TestHTTPIndexHTML(t *testing.T) {
 	require.Contains(t, string(b), "Streams")
 	require.Contains(t, string(b), "Controls")
 	require.Contains(t, string(b), "Flip image")
+	require.Contains(t, string(b), "Network access")
+	require.Contains(t, string(b), "Password required")
 }
