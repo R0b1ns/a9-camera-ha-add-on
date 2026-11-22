@@ -928,6 +928,61 @@ func TestWiFiAPFlowJoinsOpenCameraAP(t *testing.T) {
 	require.Equal(t, false, posts[1]["enabled"])
 }
 
+func TestAPSetWiFiSendsReboot(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+	oldAddr := apAddress
+	apAddress = ln.Addr().String()
+	defer func() { apAddress = oldAddr }()
+
+	got := make(chan []string, 1)
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			got <- nil
+			return
+		}
+		defer conn.Close()
+		_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+		r := apReader{conn: conn}
+		var packets []string
+		for i := 0; i < 4; i++ {
+			p, err := r.next()
+			if err != nil {
+				got <- packets
+				return
+			}
+			packets = append(packets, string(p.Payload))
+			switch i {
+			case 0: // LIVE_MOTION
+				_ = apSendJSON(conn, map[string]any{"code": 200, "devId": "0800c00409B4"})
+			case 1: // connect
+				_ = apSendJSON(conn, map[string]any{
+					"code": 200, "devId": "0800c00409B4",
+					"forwardId": "00112233445566778899aabbccddeeff",
+				})
+			case 2: // set wifi
+				_ = apSendJSON(conn, map[string]any{
+					"code": codeAPCommand,
+					"content": map[string]any{"code": a9.FwdSetWiFi, "status": 200},
+				})
+			}
+		}
+		got <- packets
+	}()
+
+	require.NoError(t, apSetWiFi("CameraNet", "newpassword"))
+	select {
+	case packets := <-got:
+		require.Len(t, packets, 4)
+		require.Contains(t, packets[2], `"code":204`)
+		require.Contains(t, packets[3], `"code":299`, "the camera must reboot to leave AP mode")
+	case <-time.After(5 * time.Second):
+		t.Fatal("fake AP did not see the reboot command")
+	}
+}
+
 func TestCameraPortDoesNotServeUI(t *testing.T) {
 	req := httptest.NewRequest("GET", "/dev/list", nil)
 	rec := httptest.NewRecorder()

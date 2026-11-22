@@ -130,9 +130,10 @@ The host check uses `/api/status`: when HA is connected by **LAN** and has a Wi-
 **not** connected, it offers the direct **Connect the camera** form; otherwise only that form is
 hidden. The local helper stays available as an alternative in both cases. In the direct flow, click
 **Scan Wi-Fi**, pick the camera's access point, then enter your home network and password. The add-on
-joins the camera AP via the Supervisor network API, sends
-code `204` over TCP
-`6123`, and disconnects Wi-Fi again afterwards. HA stays reachable over LAN throughout. It needs the
+joins the camera AP via the Supervisor network API (the interface is enabled and set to DHCP), sends
+code `204` followed by a reboot command (`code 299`) over TCP `6123`, and disconnects Wi-Fi again
+afterwards. The camera only leaves AP mode on that reboot, so the success message appears once both
+commands were accepted. HA stays reachable over LAN throughout. It needs the
 `hassio_api` permission with the `manager` role; a Wi-Fi connection that appears while the page is
 open is still refused by the API.
 If direct setup is not available, download the standalone helper from the setup page:

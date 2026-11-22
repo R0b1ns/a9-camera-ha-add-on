@@ -214,7 +214,7 @@ func waitForCameraAP(iface string, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		if interfaceIPv4(iface) {
-			conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", apHost, apPort), time.Second)
+			conn, err := net.DialTimeout("tcp", apAddress, time.Second)
 			if err == nil {
 				_ = conn.Close()
 				return true
