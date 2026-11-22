@@ -6,10 +6,15 @@ import (
 	"sync"
 )
 
-// Settings are kept by the server, not by the camera
+// Settings are kept by the server, not by the camera. The pointers distinguish
+// "not configured" from an explicit 0 (LED off, no flip), so old settings.json
+// files with only "audio" stay untouched.
 type Settings struct {
 	// Audio false asks the camera for video only, so no audio leaves it
 	Audio bool `json:"audio"`
+	IrLed *int `json:"ir_led,omitempty"`
+	InstLed *int `json:"inst_led,omitempty"`
+	MirrorFlip *int `json:"mirror_flip,omitempty"`
 }
 
 var defaultSettings = Settings{Audio: true}

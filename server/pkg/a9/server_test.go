@@ -320,6 +320,40 @@ func TestAudioOff(t *testing.T) {
 	require.False(t, waitDevice(t, srv2, "0800c0035826").Settings().Audio)
 }
 
+func TestSettingsRestoredAfterReconnect(t *testing.T) {
+	srv, addr := startServer(t)
+	srv.SettingsPath = t.TempDir() + "/settings.json"
+	srv.LoadSettings()
+
+	cam, err := fakecam.Dial(addr, "0800c0035899")
+	require.NoError(t, err)
+	dev := waitDevice(t, srv, "0800c0035899")
+	dev.SendCommand(a9.Obj{{"code", 202}, {"IrLed", 1}})
+	dev.SendCommand(a9.Obj{{"code", 210}, {"instLed", 0}})
+	dev.SendCommand(a9.Obj{{"code", 216}, {"mirrorFlip", 4}})
+	cam.Close()
+
+	// A new camera (e.g. after a reboot) must receive the same settings.
+	cam2, err := fakecam.Dial(addr, "0800c0035899")
+	require.NoError(t, err)
+	defer cam2.Close()
+	_ = waitDevice(t, srv, "0800c0035899")
+	want := map[string]int{"IrLed": 1, "instLed": 0, "mirrorFlip": 4}
+	for len(want) > 0 {
+		select {
+		case cmd := <-cam2.Commands:
+			for k, v := range cmd {
+				n, ok := v.(float64)
+				if ok && want[k] == int(n) {
+					delete(want, k)
+				}
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatalf("settings not restored, missing %v", want)
+		}
+	}
+}
+
 func TestAPIGetDevInfo(t *testing.T) {
 	srv := a9.NewServer()
 	ts := httptest.NewServer(http.HandlerFunc(srv.HandleAPI))

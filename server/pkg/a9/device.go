@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -223,9 +224,77 @@ func (d *Device) Unsubscribe(sub *Subscriber) {
 	}
 }
 
-// SendCommand sends a command to the camera, ex: {"code": 202, "IrLed": 1}
+// SendCommand sends a command to the camera, ex: {"code": 202, "IrLed": 1}.
+// LED and flip settings are remembered so they survive a camera reboot.
 func (d *Device) SendCommand(content Obj) {
+	d.persistCommandSettings(content)
 	d.forward(content)
+}
+
+func settingInt(v any) (int, bool) {
+	switch n := v.(type) {
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	case float64:
+		return int(n), true
+	case string:
+		i, err := strconv.Atoi(n)
+		return i, err == nil
+	}
+	return 0, false
+}
+
+func (d *Device) persistCommandSettings(content Obj) {
+	st := d.Settings()
+	changed := false
+	for _, kv := range content {
+		n, ok := settingInt(kv.Value)
+		if !ok {
+			continue
+		}
+		switch kv.Key {
+		case "IrLed":
+			if st.IrLed == nil || *st.IrLed != n {
+				v := n
+				st.IrLed = &v
+				changed = true
+			}
+		case "instLed":
+			if st.InstLed == nil || *st.InstLed != n {
+				v := n
+				st.InstLed = &v
+				changed = true
+			}
+		case "mirrorFlip":
+			if st.MirrorFlip == nil || *st.MirrorFlip != n {
+				v := n
+				st.MirrorFlip = &v
+				changed = true
+			}
+		}
+	}
+	if changed {
+		if err := d.srv.settings.set(d.UID, st); err != nil {
+			d.log.Warn().Err(err).Msg("[a9] save settings")
+		}
+	}
+}
+
+// ApplySettings re-sends the saved LED and flip settings after a (re)connect.
+// The camera forgets them on reboot; the add-on is the source of truth.
+func (d *Device) ApplySettings() {
+	st := d.Settings()
+	if st.IrLed != nil {
+		d.SendCommand(Obj{{"code", 202}, {"IrLed", *st.IrLed}})
+	}
+	if st.InstLed != nil {
+		d.SendCommand(Obj{{"code", 210}, {"instLed", *st.InstLed}})
+	}
+	if st.MirrorFlip != nil {
+		d.SendCommand(Obj{{"code", 216}, {"mirrorFlip", *st.MirrorFlip}})
+	}
 }
 
 // startSession must be called with d.mu locked

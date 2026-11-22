@@ -111,6 +111,8 @@ func (s *Server) handleTCP(conn net.Conn) {
 	dev := newDevice(s, msg.UID, conn)
 	dev.sendTCP(jsonPacket(map[string]any{"code": CodeRegisterRsp, "status": 200}))
 	s.register(dev)
+	// The camera forgets LED/flip settings on reboot, re-apply the saved ones.
+	dev.ApplySettings()
 
 	dev.log.Info().Msg("[a9] camera connected")
 	dev.notify()
