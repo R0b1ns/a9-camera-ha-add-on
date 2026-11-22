@@ -397,21 +397,44 @@
       const preview = el.querySelector(".preview");
       const img = el.querySelector("img");
       const playBtn = el.querySelector(".play");
-      // cam.streaming from /dev/list is authoritative: a stream started through
-      // a direct link shows as LIVE here too. Local playback is tracked as well,
-      // so the card can display video as soon as we subscribe ourselves.
+      // /dev/list reports when another client (direct link) watches the camera.
+      // Mirror that stream here, but stop again when the other viewer leaves so
+      // this card never keeps a stream alive on its own.
       const live = {
         server: !!cam.streaming,
+        external: false,
         stop: null,
+        auto: false,
+        suppress: false,
         sync() { preview.classList.toggle("live", !!this.stop || this.server); },
+        start(auto) {
+          this.stop = play(img, cam.uid, () => this.ended());
+          this.auto = auto;
+          this.sync();
+        },
+        halt() { if (this.stop) this.stop(); },
         ended() {
           this.stop = null;
+          this.auto = false;
           this.sync();
-          if (!this.server) img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
+          img.src = rel(`dev/${cam.uid}/snapshot?t=${Date.now()}`);
         },
         toggle() {
-          if (this.stop) { this.stop(); return; }
-          this.stop = play(img, cam.uid, () => this.ended());
+          if (this.stop) {
+            // A manual stop must not be undone by the next auto-mirror poll.
+            this.suppress = true;
+            this.halt();
+            return;
+          }
+          this.suppress = false;
+          this.start(false);
+        },
+        refresh(cam) {
+          this.server = !!cam.streaming;
+          const external = !!cam.external_streaming;
+          if (!external) this.suppress = false;
+          if (external && !this.stop && !this.suppress) this.start(true);
+          if (!external && this.stop && this.auto) this.halt();
           this.sync();
         },
       };
@@ -454,6 +477,12 @@
       el._syncAccess = syncAccess;
       el.querySelectorAll(".access").forEach(t => {
         t.onchange = () => {
+          if (t === netSwitch && t.checked) {
+            // Turning the links back on restores the safe password default.
+            const pwd = pwdRow.querySelector(".access");
+            pwd.checked = true;
+            pwd.dataset.pending = String(Date.now() + 5000);
+          }
           const body = {};
           el.querySelectorAll(".access").forEach(x => { body[x.dataset.access] = x.checked; });
           t.dataset.pending = String(Date.now() + 5000);
@@ -549,9 +578,8 @@
           document.getElementById("cams").appendChild(cards[cam.uid]);
         }
         const c = cards[cam.uid];
-        // Reflect streams started elsewhere (direct link, other client) as well.
-        c._live.server = !!cam.streaming;
-        c._live.sync();
+        // Mirror streams started elsewhere (direct link, other client) too.
+        c._live.refresh(cam);
         c.querySelector(".host").textContent = cam.host;
         const flipBtn = c.querySelector(".flip-btn");
         const version = cam.info && cam.info.version;
