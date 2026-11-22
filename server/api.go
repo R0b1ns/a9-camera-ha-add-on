@@ -375,6 +375,39 @@ func apiWiFi(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// apiAccess changes who may use a camera's direct links on port 8557. The web
+// UI and the integration API always stay behind the Home Assistant login.
+func apiAccess(w http.ResponseWriter, r *http.Request) {
+	uid := r.PathValue("uid")
+	if uid == "" {
+		http.Error(w, "missing uid", http.StatusBadRequest)
+		return
+	}
+	var body struct {
+		NetworkAccess    *bool `json:"network_access"`
+		PasswordRequired *bool `json:"password_required"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	ac := access.get(uid)
+	if body.NetworkAccess != nil {
+		ac.NetworkAccess = *body.NetworkAccess
+	}
+	if body.PasswordRequired != nil {
+		ac.PasswordRequired = *body.PasswordRequired
+	}
+	if err := access.set(uid, ac); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	log.Info().Str("uid", uid).Bool("network_access", ac.NetworkAccess).
+		Bool("password_required", ac.PasswordRequired).Msg("[api] access")
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // apiSettings changes server side settings of a camera, ex: {"audio": false}
 func apiSettings(w http.ResponseWriter, r *http.Request) {
 	dev := server.Get(r.PathValue("uid"))

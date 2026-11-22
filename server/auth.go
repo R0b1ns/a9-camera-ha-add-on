@@ -92,12 +92,25 @@ func trustedSource(remoteAddr string) bool {
 }
 
 // authMiddleware protects direct links to port 8557 with a Home Assistant login.
-// Ingress (Supervisor) and the local integration are already trusted.
+// Ingress (Supervisor) and the local integration are already trusted. Per camera,
+// the two direct links can be opened without a password or blocked for the
+// network entirely; the rest of the UI always needs the login.
 func authMiddleware(next http.Handler, secret []byte, enabled bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !enabled || r.URL.Path == "/login" || trustedSource(r.RemoteAddr) || validSession(r, secret) {
 			next.ServeHTTP(w, r)
 			return
+		}
+		if uid, ok := directLinkUID(r.URL.Path); ok {
+			ac := access.get(uid)
+			if !ac.NetworkAccess {
+				http.Error(w, "network access is disabled for this camera", http.StatusForbidden)
+				return
+			}
+			if !ac.PasswordRequired {
+				next.ServeHTTP(w, r)
+				return
+			}
 		}
 		target := r.URL.RequestURI()
 		http.Redirect(w, r, "/login?next="+url.QueryEscape(target), http.StatusFound)

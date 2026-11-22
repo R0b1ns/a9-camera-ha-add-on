@@ -448,6 +448,76 @@ func TestAuthMiddleware(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, openRec.Code)
 }
 
+func TestCameraAccess(t *testing.T) {
+	oldPath := access.path
+	access.path = t.TempDir() + "/access.json"
+	access.load()
+	defer func() { access.path = oldPath; access.load() }()
+
+	secret := []byte("0123456789abcdef0123456789abcdef")
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	})
+	guard := authMiddleware(next, secret, true)
+	call := func(path, remote string, cookies ...*http.Cookie) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", path, nil)
+		req.RemoteAddr = remote
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+		rec := httptest.NewRecorder()
+		guard.ServeHTTP(rec, req)
+		return rec
+	}
+	const external = "192.168.1.50:1234"
+	const link = "/dev/cam1/snapshot"
+
+	// Both switches default to on: the direct link asks for the HA login.
+	require.Equal(t, http.StatusFound, call(link, external).Code)
+	require.NoError(t, access.set("cam1", cameraAccess{NetworkAccess: true, PasswordRequired: false}))
+	require.Equal(t, http.StatusNoContent, call(link, external).Code)
+	require.Equal(t, http.StatusNoContent, call("/dev/cam1/live?raw", external).Code)
+	// Only the two camera links become public, never the UI or the API.
+	require.Equal(t, http.StatusFound, call("/api/status", external).Code)
+	require.Equal(t, http.StatusFound, call("/dev/other/snapshot", external).Code)
+
+	// Network access off blocks anonymous use of the links.
+	require.NoError(t, access.set("cam1", cameraAccess{NetworkAccess: false, PasswordRequired: false}))
+	require.Equal(t, http.StatusForbidden, call(link, external).Code)
+
+	// Ingress, loopback and logged-in HA users are unaffected by both switches.
+	require.Equal(t, http.StatusNoContent, call(link, "172.30.32.2:1234").Code)
+	require.Equal(t, http.StatusNoContent, call(link, "127.0.0.1:1234").Code)
+	cookie := &http.Cookie{Name: sessionCookie, Value: sessionValue(secret, "jane", time.Now().Add(time.Hour).Unix())}
+	require.Equal(t, http.StatusNoContent, call(link, external, cookie).Code)
+}
+
+func TestAccessEndpoint(t *testing.T) {
+	_, uid, url := setup(t)
+	t.Cleanup(func() { _ = access.set(uid, defaultCameraAccess) })
+
+	body := `{"network_access":false,"password_required":false}`
+	res, err := http.Post(url+"/api/devices/"+uid+"/access", "application/json", strings.NewReader(body))
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
+
+	res2, err := http.Get(url + "/dev/list")
+	require.NoError(t, err)
+	defer res2.Body.Close()
+	var list []map[string]any
+	require.NoError(t, json.NewDecoder(res2.Body).Decode(&list))
+	var found map[string]any
+	for _, item := range list {
+		if item["uid"] == uid {
+			found = item
+		}
+	}
+	require.NotNil(t, found)
+	require.Equal(t, false, found["network_access"])
+	require.Equal(t, false, found["password_required"])
+}
+
 func TestLoginPage(t *testing.T) {
 	req := httptest.NewRequest("GET", "/login?next=%2Fdev%2Fuid%2Fsnapshot", nil)
 	rec := httptest.NewRecorder()

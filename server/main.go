@@ -98,6 +98,12 @@ func main() {
 		secretPath = "/data/a9cam-session.key"
 	}
 	sessionSecret = loadSessionSecret(secretPath)
+	accessPath := ""
+	if isAddon {
+		accessPath = "/data/access.json"
+	}
+	access.path = accessPath
+	access.load()
 
 	server = a9.NewServer()
 	server.Log = log
@@ -176,6 +182,7 @@ func routes() *http.ServeMux {
 	mux.HandleFunc("POST /api/devices/{uid}/command", apiCommandJSON)
 	mux.HandleFunc("POST /api/devices/{uid}/refresh", apiRefresh)
 	mux.HandleFunc("POST /api/devices/{uid}/settings", apiSettings)
+	mux.HandleFunc("POST /api/devices/{uid}/access", apiAccess)
 	mux.HandleFunc("POST /api/devices/{uid}/wifi", apiWiFi)
 	mux.HandleFunc("GET /login", loginGET)
 	mux.HandleFunc("POST /login", loginPOST)
@@ -203,19 +210,23 @@ func routes() *http.ServeMux {
 
 func apiList(w http.ResponseWriter, _ *http.Request) {
 	type item struct {
-		UID       string         `json:"uid"`
-		Host      string         `json:"host"`
-		Port      int            `json:"port"`
-		Streaming bool           `json:"streaming"`
-		Since     time.Time      `json:"connected_at"`
-		Info      map[string]any `json:"info,omitempty"`
+		UID              string         `json:"uid"`
+		Host             string         `json:"host"`
+		Port             int            `json:"port"`
+		Streaming        bool           `json:"streaming"`
+		Since            time.Time      `json:"connected_at"`
+		Info             map[string]any `json:"info,omitempty"`
+		NetworkAccess    bool           `json:"network_access"`
+		PasswordRequired bool           `json:"password_required"`
 	}
 	items := []item{}
 	for _, d := range server.Devices() {
 		host, port, _ := net.SplitHostPort(d.RemoteAddr())
 		p, _ := strconv.Atoi(port)
+		ac := access.get(d.UID)
 		items = append(items, item{
 			UID: d.UID, Host: host, Port: p, Streaming: d.Streaming(), Since: d.ConnectedAt, Info: d.Info(),
+			NetworkAccess: ac.NetworkAccess, PasswordRequired: ac.PasswordRequired,
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
