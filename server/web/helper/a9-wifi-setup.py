@@ -29,6 +29,7 @@ CMD_LIVE_MOTION = 115
 CODE_AP_CONNECT = 501
 CODE_AP_COMMAND = 502
 CODE_SET_WIFI = 204
+CODE_REBOOT = 299
 HEADER = struct.Struct("<LHBB8sL")
 FORWARD_ID = b"00000000"
 
@@ -107,8 +108,17 @@ def main() -> int:
                 "p": password,
             },
         }
-        sock.sendall(packet(json.dumps(command, separators=(",", ":")).encode()))
-        stream.read_packet()
+        reply = stream.read_packet()
+        content = reply.get("content", {}) if isinstance(reply, dict) else {}
+        if content.get("status", 0) not in (0, 200):
+            raise ValueError("camera rejected Wi-Fi change (status %s)" % content.get("status"))
+        # Setting the credentials alone leaves the camera in AP mode. The
+        # reboot is what actually switches it to the new network.
+        reboot = {
+            "code": CODE_AP_COMMAND,
+            "content": {"code": CODE_REBOOT, "devTarget": DEV_TARGET},
+        }
+        sock.sendall(packet(json.dumps(reboot, separators=(",", ":")).encode()))
         print("\nDone. The camera now joins %s and reboots." % ssid)
         print("Keep the DNS rewrites *.naxclow.com and *.naxclow.com.cn")
         print("pointing at your Home Assistant host in the new network.")
