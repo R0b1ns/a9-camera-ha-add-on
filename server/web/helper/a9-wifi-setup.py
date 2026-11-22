@@ -108,6 +108,7 @@ def main() -> int:
                 "p": password,
             },
         }
+        sock.sendall(packet(json.dumps(command, separators=(",", ":")).encode()))
         reply = stream.read_packet()
         content = reply.get("content", {}) if isinstance(reply, dict) else {}
         if content.get("status", 0) not in (0, 200):
