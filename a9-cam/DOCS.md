@@ -20,8 +20,9 @@ The cameras connect to it instead of China, and it serves their video and audio 
    a hint while stopped. The camera icon in the lower left opens the current snapshot in a
    dialog (and lets you download it) without leaving the page – opening an Ingress URL in a new tab
    would get a 401 because that tab has no Home Assistant ingress session. Its URLs are
-   grouped under **Streams**, while **Controls** has switches for IR LED, status LED and image flip
-   plus Reboot and Change Wi-Fi. You can also open the URLs directly on
+   grouped under **Streams**, while **Controls** has switches for IR LED and status LED plus Reboot
+   and Change Wi-Fi. Image flip is the icon in the top right of the preview. You can also open the
+   URLs directly on
    port 8557 after a one-time Home Assistant login (see **Access control**).
 6. Optional but recommended: install the **A9 Camera** integration from HACS (same repository) and
    restart Home Assistant. It finds this add-on by itself and adds each camera as a device with a live

@@ -246,7 +246,6 @@
     const toggles = [
       ["IR LED", "IrLed", "code=202&amp;IrLed=1", "code=202&amp;IrLed=0"],
       ["Status LED", "instLed", "code=210&amp;instLed=1", "code=210&amp;instLed=0"],
-      ["Flip image", "mirrorFlip", "code=216&amp;mirrorFlip=4", "code=216&amp;mirrorFlip=0"],
     ];
     const cards = {};
 
@@ -433,15 +432,15 @@
           fetch(rel(`dev/${cam.uid}/cmd?${q}`)).catch(() => {});
         };
       });
-      // The icon and the switch in Controls drive the same camera setting.
+      // The image icon is the only control for the camera orientation.
       const flipBtn = el.querySelector(".flip-btn");
-      const flipSwitch = el.querySelector('.toggle[data-key="mirrorFlip"]');
+      flipBtn.classList.toggle("active", Number(cam.info && cam.info.mirrorFlip) !== 0);
       flipBtn.onclick = () => {
-        const on = !flipSwitch.checked;
-        flipSwitch.checked = on;
-        flipSwitch.dataset.pending = String(Date.now() + 5000);
+        const on = !flipBtn.classList.contains("active");
         flipBtn.classList.toggle("active", on);
-        fetch(rel(`dev/${cam.uid}/cmd?${on ? flipSwitch.dataset.on : flipSwitch.dataset.off}`))
+        // Keep the new position until the camera reports its base info again.
+        flipBtn.dataset.pending = String(Date.now() + 5000);
+        fetch(rel(`dev/${cam.uid}/cmd?${on ? "code=216&mirrorFlip=4" : "code=216&mirrorFlip=0"}`))
           .catch(() => {});
       };
       el.querySelectorAll(".access").forEach(t => {
@@ -544,6 +543,7 @@
         c._live.server = !!cam.streaming;
         c._live.sync();
         c.querySelector(".host").textContent = cam.host;
+        const flipBtn = c.querySelector(".flip-btn");
         const version = cam.info && cam.info.version;
         const fw = c.querySelector(".fw");
         fw.hidden = !version;
@@ -552,12 +552,13 @@
           if (Date.now() < Number(t.dataset.pending || 0)) return;
           const value = cam.info && cam.info[t.dataset.key];
           if (value === undefined || value === null) return;
-          t.checked = t.dataset.key === "mirrorFlip"
-            ? Number(value) !== 0
-            : Number(value) === 1;
+          t.checked = Number(value) === 1;
         });
-        c.querySelector(".flip-btn").classList.toggle("active",
-          c.querySelector('.toggle[data-key="mirrorFlip"]').checked);
+        const flip = cam.info && cam.info.mirrorFlip;
+        if (flip !== undefined && flip !== null &&
+            Date.now() >= Number(flipBtn.dataset.pending || 0)) {
+          flipBtn.classList.toggle("active", Number(flip) !== 0);
+        }
         c.querySelectorAll(".access").forEach(t => {
           if (Date.now() < Number(t.dataset.pending || 0)) return;
           const value = cam[t.dataset.access];
